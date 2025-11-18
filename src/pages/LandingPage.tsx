@@ -24,22 +24,13 @@ export default function LandingPage() {
             <div className="flex items-center space-x-4">
               <ThemeToggle />
               <Button
-                variant="secondary"
+                variant="primary"
                 onClick={() => {
                   setCurrentView('login');
                   navigate('/login');
                 }}
               >
                 Iniciar Sesión
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setCurrentView('register');
-                  navigate('/register');
-                }}
-              >
-                Registrarse
               </Button>
             </div>
           </div>
@@ -60,22 +51,14 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 onClick={() => {
-                  setCurrentView('register');
-                  navigate('/register');
+                  setCurrentView('login');
+                  navigate('/login');
                 }}
                 className="px-8 py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-lg transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl"
               >
                 Comenzar Ahora
               </button>
-              <button
-                onClick={() => {
-                  setCurrentView('login');
-                  navigate('/login');
-                }}
-                className="px-8 py-4 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-teal-600 dark:text-teal-400 rounded-xl font-semibold text-lg border-2 border-teal-600 dark:border-teal-400 transition-all transform hover:scale-105 shadow-lg"
-              >
-                Explorar
-              </button>
+            
             </div>
           </div>
         </section>
@@ -178,12 +161,12 @@ export default function LandingPage() {
             </p>
             <button
               onClick={() => {
-                setCurrentView('register');
-                navigate('/register');
+                setCurrentView('login');
+                navigate('/login');
               }}
               className="px-10 py-4 bg-white hover:bg-gray-100 text-teal-600 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-2xl"
             >
-              Registrarse Gratis
+              Iniciar con Google
             </button>
           </div>
         </section>

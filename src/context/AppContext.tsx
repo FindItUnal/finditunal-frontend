@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { User } from '../types';
 import useUserStore from '../store/useUserStore';
 
-type View = 'landing' | 'login' | 'register' | 'dashboard' | 'profile' | 'messages' | 'admin-dashboard' | 'admin-users' | 'admin-reports';
+type View = 'landing' | 'login' | 'dashboard' | 'profile' | 'messages' | 'admin-dashboard' | 'admin-users' | 'admin-reports';
 
 interface AppContextType {
   currentView: View;
@@ -28,7 +28,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (pathname.startsWith('/profile')) return 'profile';
     if (pathname.startsWith('/dashboard')) return 'dashboard';
     if (pathname === '/login') return 'login';
-    if (pathname === '/register') return 'register';
     return 'landing';
   }
 

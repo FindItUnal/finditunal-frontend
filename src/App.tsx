@@ -2,7 +2,6 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AppProvider } from './context/AppContext';
 import {
   LoginPage,
-  RegisterPage,
   DashboardPage,
   ProfilePage,
   MessagesPage,
@@ -23,7 +22,6 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
 
             {/* Routes that share the Header/Layout */}
             <Route element={<Layout />}>
