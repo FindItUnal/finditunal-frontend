@@ -8,8 +8,10 @@ export default function LoginPage() {
   const navigate = useNavigate();
 
   const startGoogleAuth = () => {
-    const url = import.meta.env.VITE_GOOGLE_AUTH_URL || '/auth/google';
-    // Redirect the browser to the Google OAuth entrypoint
+    // Use explicit backend host as fallback to avoid SPA routing interception
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const url = import.meta.env.VITE_GOOGLE_AUTH_URL || `${apiBase.replace(/\/$/, '')}/auth/google`;
+    // Redirect the browser to the Google OAuth entrypoint (backend)
     window.location.href = url;
   };
 
