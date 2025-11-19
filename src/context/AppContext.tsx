@@ -43,6 +43,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurrentView(v);
   }, [location.pathname]);
 
+  // On mount try to load authenticated user from backend (uses httpOnly cookies)
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const resp = await fetch(`${apiBase.replace(/\/$/, '')}/user/profile`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: { Accept: 'application/json' },
+        });
+
+        if (!resp.ok) return;
+
+        const data = await resp.json();
+        // set user in zustand store
+        setUser(data);
+
+        // If on landing or login, redirect to dashboard
+        if (location.pathname === '/' || location.pathname === '/login') {
+          navigate('/dashboard');
+        }
+      } catch (error) {
+        // ignore — user will remain unauthenticated
+      }
+    };
+
+    loadProfile();
+    // run only once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const logout = () => {
     logoutFromStore();
     setCurrentView('landing');

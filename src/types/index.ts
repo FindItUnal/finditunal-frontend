@@ -5,6 +5,8 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
+  user_id?: string; // optional backend id
+  phone_number?: string;
   role: 'user' | 'admin';
   status: 'active' | 'suspended';
   createdAt: string;

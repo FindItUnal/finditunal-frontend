@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 import { PageTemplate } from '../components/templates';
 import PublishModal from '../components/organisms/PublishModal';
 import ConfirmDialog from '../components/molecules/ConfirmDialog';
 import PublicationsList from '../components/organisms/PublicationsList';
-import { useApp } from '../context/AppContext';
+import useUserStore from '../store/useUserStore';
+import useGlobalStore from '../store/useGlobalStore';
 import { Item } from '../types';
 
 const initialMockUserItems: Item[] = [
@@ -38,16 +39,27 @@ const initialMockUserItems: Item[] = [
 ];
 
 export default function ProfilePage() {
-  const { user } = useApp();
+  const user = useUserStore((s) => s.user);
+  const updateUserStore = useUserStore((s) => s.updateUser);
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [phone, setPhone] = useState(user?.phone_number || '');
   const [userItems, setUserItems] = useState<Item[]>(initialMockUserItems);
   const [publishOpen, setPublishOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toDeleteId, setToDeleteId] = useState<string | null>(null);
+  const apiUrl = useGlobalStore((s) => s.apiUrl);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setName(user?.name || '');
+    setEmail(user?.email || '');
+    setPhone(user?.phone_number || '');
+  }, [user]);
 
   return (
     <PageTemplate>
@@ -98,7 +110,7 @@ export default function ProfilePage() {
             {isEditing ? (
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 transition-colors">
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Editar Información</h3>
-                <form className="space-y-6">
+                <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Nombre completo
@@ -126,6 +138,15 @@ export default function ProfilePage() {
                     </p>
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Teléfono</label>
+                    <input
+                      type="text"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white transition-colors"
+                    />
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Nueva contraseña
                     </label>
@@ -144,13 +165,47 @@ export default function ProfilePage() {
                       Cancelar
                     </button>
                     <button
-                      type="submit"
-                      onClick={() => setIsEditing(false)}
+                      type="button"
+                      onClick={async () => {
+                        if (!user) return;
+                        setSaving(true);
+                        setError(null);
+                        try {
+                          const uid = user.user_id ?? (user.id as string);
+                          const resp = await fetch(
+                            `${apiUrl.replace(/\/$/, '')}/user/${encodeURIComponent(uid)}/profile/update`,
+                            {
+                              method: 'PATCH',
+                              credentials: 'include',
+                              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                              body: JSON.stringify({ phone_number: phone }),
+                            },
+                          );
+
+                          if (!resp.ok) {
+                            const body = await resp.json().catch(() => ({}));
+                            setError(body?.message || `Error: ${resp.status}`);
+                            setSaving(false);
+                            return;
+                          }
+
+                          // Update store optimistically
+                          updateUserStore({ phone_number: phone });
+                          // Optionally fetch full profile: const updated = await resp.json(); setUser(updated);
+
+                          setIsEditing(false);
+                        } catch (err) {
+                          setError('Error de red o servidor');
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
                       className="px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-semibold transition-all transform hover:scale-105 shadow-lg"
                     >
-                      Guardar Cambios
+                      {saving ? 'Guardando...' : 'Guardar Cambios'}
                     </button>
                   </div>
+                  {error && <div className="text-red-600">{error}</div>}
                 </form>
               </div>
             ) : (
