@@ -3,16 +3,15 @@ import { AuthTemplate } from '../components/templates';
 import ThemeToggle from '../components/atoms/ThemeToggle';
 import { Button } from '../components/atoms';
 import { Logo } from '../components/atoms';
+import useGlobalStore from '../store/useGlobalStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
 
+  const googleAuthUrl = useGlobalStore((s) => s.googleAuthUrl);
   const startGoogleAuth = () => {
-    // Use explicit backend host as fallback to avoid SPA routing interception
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-    const url = import.meta.env.VITE_GOOGLE_AUTH_URL || `${apiBase.replace(/\/$/, '')}/auth/google`;
-    // Redirect the browser to the Google OAuth entrypoint (backend)
-    window.location.href = url;
+    // Redirect the browser to the Google OAuth entrypoint (backend) using global store
+    window.location.href = googleAuthUrl;
   };
 
   return (
