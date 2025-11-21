@@ -2,6 +2,8 @@ import { createContext, useContext, useState, ReactNode, useEffect } from 'react
 import { useLocation, useNavigate } from 'react-router-dom';
 import { User } from '../types';
 import useUserStore from '../store/useUserStore';
+import useGlobalStore from '../store/useGlobalStore';
+import * as userService from '../services/userService';
 
 type View = 'landing' | 'login' | 'dashboard' | 'profile' | 'messages' | 'admin-dashboard' | 'admin-users' | 'admin-reports';
 
@@ -11,7 +13,7 @@ interface AppContextType {
   user: User | null;
   setUser: (user: User | null) => void;
   isAuthenticated: boolean;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -74,7 +76,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || useGlobalStore.getState().apiUrl;
+      await userService.logoutRequest(apiBase);
+    } catch (err) {
+      // ignore network errors but still clear local state
+    }
+
     logoutFromStore();
     setCurrentView('landing');
     navigate('/');

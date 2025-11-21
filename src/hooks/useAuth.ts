@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 
 export interface UseAuthReturn {
   login: (email: string, password: string) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
   user: any;
 }
@@ -37,8 +37,8 @@ export function useAuth(): UseAuthReturn {
     [navigate, setUser]
   );
 
-  const logout = useCallback(() => {
-    contextLogout();
+  const logout = useCallback(async () => {
+    await contextLogout();
   }, [contextLogout]);
 
   return {
