@@ -44,7 +44,6 @@ export default function HeaderResponsive() {
           <div className="hidden md:flex items-center space-x-3">
             <NavLink to="/dashboard" className={navItemClass} onClick={() => setCurrentView('dashboard')}>
               <Package className="w-5 h-5" />
-              <span className="hidden lg:inline">Publicaciones</span>
             </NavLink>
 
             <NavLink to="/messages" className={navItemClass} onClick={() => setCurrentView('messages')}>
@@ -59,7 +58,6 @@ export default function HeaderResponsive() {
                   </span>
                 )}
               </div>
-              <span className="hidden lg:inline">Mensajes</span>
             </NavLink>
 
             
