@@ -47,16 +47,59 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // On mount try to load authenticated user from backend (uses httpOnly cookies)
   useEffect(() => {
+    // Only attempt to load profile if there is some persisted session info (avoid noisy 401s)
+    let hasPersistedUser = false;
+    try {
+      const raw = localStorage.getItem('finditunal-user');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // zustand persist saves { state: { user: ... } } or sometimes { user: ... } depending on version
+        const maybeUser = parsed?.state?.user ?? parsed?.user ?? null;
+        hasPersistedUser = maybeUser !== null && typeof maybeUser !== 'undefined';
+      }
+    } catch (e) {
+      hasPersistedUser = false;
+    }
+
+    const hasToken = !!(
+      localStorage.getItem('finditunal-token') ||
+      localStorage.getItem('authToken') ||
+      localStorage.getItem('token')
+    );
+
+    if (!hasPersistedUser && !hasToken) {
+      // No stored session or token — skip calling protected endpoint to avoid 401 in devtools
+      return;
+    }
+
     const loadProfile = async () => {
       try {
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+        const apiBase = import.meta.env.VITE_API_URL || useGlobalStore.getState().apiUrl || 'http://localhost:3000';
+
+        const token =
+          localStorage.getItem('finditunal-token') || localStorage.getItem('authToken') || localStorage.getItem('token');
+
+        const headers: Record<string, string> = { Accept: 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const resp = await fetch(`${apiBase.replace(/\/$/, '')}/user/profile`, {
           method: 'GET',
           credentials: 'include',
-          headers: { Accept: 'application/json' },
+          headers,
         });
 
-        if (!resp.ok) return;
+        if (resp.status === 401) {
+          // Not authenticated — ensure local state is cleared and don't redirect
+          logoutFromStore();
+          return;
+        }
+
+        if (!resp.ok) {
+          // Other non-ok status — log for debugging then exit
+          const txt = await resp.text().catch(() => '');
+          console.warn('loadProfile failed', resp.status, txt);
+          return;
+        }
 
         const data = await resp.json();
         // set user in zustand store
@@ -67,7 +110,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           navigate('/dashboard');
         }
       } catch (error) {
-        // ignore — user will remain unauthenticated
+        console.error('loadProfile network error', error);
       }
     };
 
