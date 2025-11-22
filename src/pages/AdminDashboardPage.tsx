@@ -5,11 +5,11 @@ import {
   TrendingUp,
   User as UserIcon,
 } from 'lucide-react';
-import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
 import { PageTemplate } from '../components/templates';
 import { Card, Button } from '../components/atoms';
 import { Metrics } from '../types';
+import useUserStore from '../store/useUserStore';
 
 const mockMetrics: Metrics = {
   totalUsers: 245,
@@ -52,7 +52,7 @@ const recentActivity = [
 ];
 
 export default function AdminDashboardPage() {
-  const { setCurrentView, user } = useApp();
+  const user = useUserStore((s) => s.user);
   const navigate = useNavigate();
 
   return (
@@ -170,19 +170,13 @@ export default function AdminDashboardPage() {
               <Button
                 variant="primary"
                 icon={Users}
-                onClick={() => {
-                  setCurrentView('admin-users');
-                  navigate('/admin/users');
-                }}
+                onClick={() => navigate('/admin/users')}
                 className="w-full"
               >
                 Gestionar Usuarios
               </Button>
               <button
-                onClick={() => {
-                  setCurrentView('admin-reports');
-                  navigate('/admin/reports');
-                }}
+                onClick={() => navigate('/admin/reports')}
                 className="w-full py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
               >
                 <AlertCircle className="w-5 h-5" />

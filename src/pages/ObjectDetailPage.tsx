@@ -5,14 +5,14 @@ import { PageTemplate } from '../components/templates';
 import ReportDialog from '../components/molecules/ReportDialog';
 import BackButton from '../components/atoms/BackButton';
 import { Button, Badge } from '../components/atoms';
-import { useApp } from '../context/AppContext';
+import useUserStore from '../store/useUserStore';
 import ConfirmDialog from '../components/molecules/ConfirmDialog';
 
 export default function ObjectDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [reportOpen, setReportOpen] = useState(false);
-  const { user } = useApp();
+  const user = useUserStore((s) => s.user);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Datos simulados del objeto (usa el id de la ruta si está presente)

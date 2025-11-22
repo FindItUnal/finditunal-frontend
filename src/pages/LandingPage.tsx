@@ -1,13 +1,26 @@
 import { Search, Package, MessageCircle, Shield, TrendingUp, Users } from 'lucide-react';
-import { useApp } from '../context/AppContext';
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import ThemeToggle from '../components/atoms/ThemeToggle';
 import { Button } from '../components/atoms';
 import unalIcon from '../assets/icon_unal.svg';
+import useUserStore from '../store/useUserStore';
 
 export default function LandingPage() {
-  const { setCurrentView } = useApp();
+  const user = useUserStore((s) => s.user);
+  const isAuthenticated = user !== null;
   const navigate = useNavigate();
+
+  // Redirigir si ya está autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (user?.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white dark:from-gray-900 dark:to-gray-800 transition-colors">
@@ -25,10 +38,7 @@ export default function LandingPage() {
               <ThemeToggle />
               <Button
                 variant="primary"
-                onClick={() => {
-                  setCurrentView('login');
-                  navigate('/login');
-                }}
+                onClick={() => navigate('/login')}
               >
                 Iniciar Sesión
               </Button>
@@ -50,10 +60,7 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
-                onClick={() => {
-                  setCurrentView('login');
-                  navigate('/login');
-                }}
+                onClick={() => navigate('/login')}
                 className="px-8 py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-lg transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl"
               >
                 Comenzar Ahora
@@ -160,10 +167,7 @@ export default function LandingPage() {
               Únete a nuestra comunidad y ayuda a recuperar objetos perdidos en tu universidad.
             </p>
             <button
-              onClick={() => {
-                setCurrentView('login');
-                navigate('/login');
-              }}
+              onClick={() => navigate('/login')}
               className="px-10 py-4 bg-white hover:bg-gray-100 text-teal-600 rounded-xl font-bold text-lg transition-all transform hover:scale-105 shadow-2xl"
             >
               Iniciar con Google

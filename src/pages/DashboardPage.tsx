@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { PageTemplate } from '../components/templates';
 import { SearchFilterBar, ItemGrid, EmptyState } from '../components/organisms';
 import PublishModal from '../components/organisms/PublishModal';
-import { useApp } from '../context/AppContext';
 import { useSearchFilter, useModal } from '../hooks';
 import { Item } from '../types';
 import ReportDialog from '../components/molecules/ReportDialog';
+import useUserStore from '../store/useUserStore';
 
 // Mock data
 const mockItems: Item[] = [
@@ -93,7 +93,7 @@ const mockItems: Item[] = [
 const categories = ['Todas', 'Electrónicos', 'Mochilas', 'Llaves', 'Libros', 'Ropa', 'Documentos', 'Otros'];
 
 export default function DashboardPage() {
-  const { user } = useApp();
+  const user = useUserStore((s) => s.user);
   const navigate = useNavigate();
   const { searchTerm, setSearchTerm, selectedCategory, setSelectedCategory, filterItems } = useSearchFilter('Todas');
   const publishModal = useModal();

@@ -1,12 +1,27 @@
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { AuthTemplate } from '../components/templates';
 import ThemeToggle from '../components/atoms/ThemeToggle';
 import { Button } from '../components/atoms';
 import { Logo } from '../components/atoms';
 import useGlobalStore from '../store/useGlobalStore';
+import useUserStore from '../store/useUserStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const user = useUserStore((s) => s.user);
+  const isAuthenticated = user !== null;
+
+  // Redirigir si ya está autenticado
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (user?.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const googleAuthUrl = useGlobalStore((s) => s.googleAuthUrl);
   const startGoogleAuth = () => {
