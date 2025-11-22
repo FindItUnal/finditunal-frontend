@@ -1,4 +1,5 @@
 export { default as LoginPage } from './LoginPage';
+export { default as AuthCallbackPage } from './AuthCallbackPage';
 // Register page was removed in favor of Google OAuth sign-in
 export { default as DashboardPage } from './DashboardPage';
 export { default as ProfilePage } from './ProfilePage';

@@ -1,26 +1,14 @@
 import { Search, Package, MessageCircle, Shield, TrendingUp, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
 import ThemeToggle from '../components/atoms/ThemeToggle';
 import { Button } from '../components/atoms';
 import unalIcon from '../assets/icon_unal.svg';
 import useUserStore from '../store/useUserStore';
 
 export default function LandingPage() {
+  const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
   const isAuthenticated = user !== null;
-  const navigate = useNavigate();
-
-  // Redirigir si ya está autenticado
-  useEffect(() => {
-    if (isAuthenticated) {
-      if (user?.role === 'admin') {
-        navigate('/admin', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
-    }
-  }, [isAuthenticated, user, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-teal-50 to-white dark:from-gray-900 dark:to-gray-800 transition-colors">
@@ -36,12 +24,21 @@ export default function LandingPage() {
             </div>
             <div className="flex items-center space-x-4">
               <ThemeToggle />
-              <Button
-                variant="primary"
-                onClick={() => navigate('/login')}
-              >
-                Iniciar Sesión
-              </Button>
+              {isAuthenticated ? (
+                <Button
+                  variant="primary"
+                  onClick={() => navigate(user?.role === 'admin' ? '/admin' : '/dashboard')}
+                >
+                  Ir al Dashboard
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  onClick={() => navigate('/login')}
+                >
+                  Iniciar Sesión
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -59,12 +56,21 @@ export default function LandingPage() {
               Plataforma universitaria para reportar y encontrar objetos perdidos. Conecta con tu comunidad y recupera lo que más importa.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                onClick={() => navigate('/login')}
-                className="px-8 py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-lg transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl"
-              >
-                Comenzar Ahora
-              </button>
+              {isAuthenticated ? (
+                <button
+                  onClick={() => navigate(user?.role === 'admin' ? '/admin' : '/dashboard')}
+                  className="px-8 py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-lg transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl"
+                >
+                  Ir al Dashboard
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/login')}
+                  className="px-8 py-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-lg transition-all transform hover:scale-105 shadow-xl hover:shadow-2xl"
+                >
+                  Comenzar Ahora
+                </button>
+              )}
             
             </div>
           </div>
