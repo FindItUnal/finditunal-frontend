@@ -9,6 +9,7 @@ import {
   AdminDashboardPage,
   AdminUsersPage,
   AdminReportsPage,
+  AuthCallbackPage,
 } from '../pages';
 import Layout from '../components/templates/Layout';
 import PrivateRoute from './PrivateRoute';
@@ -18,6 +19,7 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
       {/* Rutas protegidas con Layout compartido */}
       <Route element={<Layout />}>
