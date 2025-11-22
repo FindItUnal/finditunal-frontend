@@ -2,9 +2,10 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Package, MessageCircle, User, Users, LogOut, Menu, X } from 'lucide-react';
 import ThemeToggle from './atoms/ThemeToggle';
 import unalIcon from '../assets/icon_unal.svg';
-import { useApp } from '../context/AppContext';
 import { useState } from 'react';
 import { mockChats } from '../data/chats';
+import useUserStore from '../store/useUserStore';
+import useGlobalStore from '../store/useGlobalStore';
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
   `p-2 rounded-md flex items-center space-x-2 transition-colors ${
@@ -15,12 +16,13 @@ const navItemClass = ({ isActive }: { isActive: boolean }) =>
 
 export default function HeaderResponsive() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, logout, setCurrentView } = useApp();
+  const user = useUserStore((s) => s.user);
+  const logoutFromStore = useUserStore((s) => s.logout);
+  const apiUrl = useGlobalStore((s) => s.apiUrl);
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const handleLogout = async () => {
+    await logoutFromStore(apiUrl, navigate);
     setMobileOpen(false);
   };
 
@@ -42,11 +44,11 @@ export default function HeaderResponsive() {
 
           {/* desktop nav */}
           <div className="hidden md:flex items-center space-x-3">
-            <NavLink to="/dashboard" className={navItemClass} onClick={() => setCurrentView('dashboard')}>
+            <NavLink to="/dashboard" className={navItemClass}>
               <Package className="w-5 h-5" />
             </NavLink>
 
-            <NavLink to="/messages" className={navItemClass} onClick={() => setCurrentView('messages')}>
+            <NavLink to="/messages" className={navItemClass}>
               <div className="relative inline-flex items-center">
                 <MessageCircle className="w-5 h-5" />
                 {/* badge */}
@@ -63,14 +65,14 @@ export default function HeaderResponsive() {
             
 
             {user?.role === 'admin' && (
-              <NavLink to="/admin" className={navItemClass} onClick={() => setCurrentView('admin-dashboard')}>
+              <NavLink to="/admin" className={navItemClass}>
                 <Users className="w-5 h-5" />
                 <span className="hidden lg:inline">Admin</span>
               </NavLink>
             )}
 
             <ThemeToggle />
-            <NavLink to="/profile" className={navItemClass} onClick={() => setCurrentView('profile')}>
+            <NavLink to="/profile" className={navItemClass}>
               <User className="w-5 h-5" />
               <span className="hidden lg:inline">Perfil</span>
             </NavLink>
@@ -83,7 +85,7 @@ export default function HeaderResponsive() {
           {/* mobile controls: icons + hamburger */}
           <div className="flex md:hidden items-center ">
             {/* mobile messages icon with badge */}
-            <NavLink to="/messages" className="p-2 text-gray-600 dark:text-gray-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors" onClick={() => setCurrentView('messages')}>
+            <NavLink to="/messages" className="p-2 text-gray-600 dark:text-gray-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
               <div className="relative inline-flex items-center">
                 <MessageCircle className="w-5 h-5" />
                 {mockChats && mockChats.reduce((acc, c) => acc + (c.unreadCount || 0), 0) > 0 && (
@@ -112,23 +114,23 @@ export default function HeaderResponsive() {
             className="px-4 pt-2 pb-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 animate-in slide-in-from-top-2 duration-200"
           >
             <nav className="flex flex-col space-y-2">
-              <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'px-3 py-2 rounded-md bg-teal-600 text-white flex items-center space-x-2' : 'px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 flex items-center space-x-2'} onClick={() => { setCurrentView('dashboard'); setMobileOpen(false); }}>
+              <NavLink to="/dashboard" className={({ isActive }) => isActive ? 'px-3 py-2 rounded-md bg-teal-600 text-white flex items-center space-x-2' : 'px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 flex items-center space-x-2'} onClick={() => setMobileOpen(false)}>
                 <Package className="w-5 h-5" />
                 <span>Publicaciones</span>
               </NavLink>
 
-              <NavLink to="/messages" className={({ isActive }) => isActive ? 'px-3 py-2 rounded-md bg-teal-600 text-white flex items-center space-x-2' : 'px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 flex items-center space-x-2'} onClick={() => { setCurrentView('messages'); setMobileOpen(false); }}>
+              <NavLink to="/messages" className={({ isActive }) => isActive ? 'px-3 py-2 rounded-md bg-teal-600 text-white flex items-center space-x-2' : 'px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 flex items-center space-x-2'} onClick={() => setMobileOpen(false)}>
                 <MessageCircle className="w-5 h-5" />
                 <span>Mensajes</span>
               </NavLink>
 
-              <NavLink to="/profile" className={({ isActive }) => isActive ? 'px-3 py-2 rounded-md bg-teal-600 text-white flex items-center space-x-2' : 'px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 flex items-center space-x-2'} onClick={() => { setCurrentView('profile'); setMobileOpen(false); }}>
+              <NavLink to="/profile" className={({ isActive }) => isActive ? 'px-3 py-2 rounded-md bg-teal-600 text-white flex items-center space-x-2' : 'px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 flex items-center space-x-2'} onClick={() => setMobileOpen(false)}>
                 <User className="w-5 h-5" />
                 <span>Perfil</span>
               </NavLink>
 
               {user?.role === 'admin' && (
-                <NavLink to="/admin" className={({ isActive }) => isActive ? 'px-3 py-2 rounded-md bg-teal-600 text-white flex items-center space-x-2' : 'px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 flex items-center space-x-2'} onClick={() => { setCurrentView('admin-dashboard'); setMobileOpen(false); }}>
+                <NavLink to="/admin" className={({ isActive }) => isActive ? 'px-3 py-2 rounded-md bg-teal-600 text-white flex items-center space-x-2' : 'px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 flex items-center space-x-2'} onClick={() => setMobileOpen(false)}>
                   <Users className="w-5 h-5" />
                   <span>Admin</span>
                 </NavLink>

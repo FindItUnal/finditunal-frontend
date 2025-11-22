@@ -2,7 +2,7 @@ import { IconButton } from '../atoms';
 import { Flag, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import ConfirmDialog from './ConfirmDialog';
-import { useApp } from '../../context/AppContext';
+import useUserStore from '../../store/useUserStore';
 
 interface AdminOrReportProps {
   id: string;
@@ -12,7 +12,7 @@ interface AdminOrReportProps {
 }
 
 export default function AdminOrReport({ id, title, onReport, onDelete }: AdminOrReportProps) {
-  const { user } = useApp();
+  const user = useUserStore((s) => s.user);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (user?.role === 'admin') {
