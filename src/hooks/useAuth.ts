@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
 import { useCallback } from 'react';
+import useUserStore from '../store/useUserStore';
+import useGlobalStore from '../store/useGlobalStore';
 
 export interface UseAuthReturn {
   login: (email: string, password: string) => void;
@@ -11,7 +12,12 @@ export interface UseAuthReturn {
 
 export function useAuth(): UseAuthReturn {
   const navigate = useNavigate();
-  const { setUser, user, logout: contextLogout, isAuthenticated } = useApp();
+  const user = useUserStore((s) => s.user);
+  const setUser = useUserStore((s) => s.setUser);
+  const logoutFromStore = useUserStore((s) => s.logout);
+  const apiUrl = useGlobalStore((s) => s.apiUrl);
+
+  const isAuthenticated = user !== null;
 
   const login = useCallback(
     (email: string, _password: string) => {
@@ -38,8 +44,8 @@ export function useAuth(): UseAuthReturn {
   );
 
   const logout = useCallback(async () => {
-    await contextLogout();
-  }, [contextLogout]);
+    await logoutFromStore(apiUrl, navigate);
+  }, [logoutFromStore, apiUrl, navigate]);
 
   return {
     login,

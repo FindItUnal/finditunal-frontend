@@ -5,8 +5,8 @@ import * as userService from '../services/userService';
 
 export function useProfile() {
   const user = useUserStore((s) => s.user);
-  const setUser = useUserStore((s) => s.setUser);
   const updateUser = useUserStore((s) => s.updateUser);
+  const refreshUserFromStore = useUserStore((s) => s.refreshUser);
   const apiUrl = useGlobalStore((s) => s.apiUrl);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -24,8 +24,7 @@ export function useProfile() {
 
   async function refreshProfile() {
     try {
-      const data = await userService.getProfile(apiUrl);
-      setUser(data);
+      await refreshUserFromStore(apiUrl);
     } catch (err) {
       // ignore
     }
@@ -46,11 +45,6 @@ export function useProfile() {
     }
   }
 
-  async function logout() {
-    await userService.logoutRequest(apiUrl);
-    setUser(null);
-  }
-
   return {
     user,
     isEditing,
@@ -64,6 +58,5 @@ export function useProfile() {
     error,
     savePhone,
     refreshProfile,
-    logout,
   };
 }
