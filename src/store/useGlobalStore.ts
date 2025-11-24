@@ -1,5 +1,11 @@
 import { create } from 'zustand';
 
+const sanitizeBaseUrl = (value?: string) => {
+  if (!value) return '';
+  const trimmed = value.trim();
+  return trimmed ? trimmed.replace(/\/$/, '') : '';
+};
+
 export interface GlobalState {
   apiUrl: string;
   googleAuthUrl: string;
@@ -10,16 +16,19 @@ export interface GlobalState {
   reset: () => void;
 }
 
-const defaultApi = (import.meta.env.VITE_API_URL as string) || 'http://localhost:3000';
-const defaultGoogle =
-  (import.meta.env.VITE_GOOGLE_AUTH_URL as string) || `${defaultApi.replace(/\/$/, '')}/auth/google`;
-// Use a central port env `VITE_PUERTO` to build the frontend origin by default.
-const portFromEnv = (import.meta.env.VITE_PUERTO as string) || (import.meta.env.VITE_PORT as string) || '';
-const defaultFrontend =
-  (import.meta.env.VITE_FRONTEND_URL as string) ||
-  (typeof window !== 'undefined'
-    ? window.location.origin
-    : `http://localhost:${portFromEnv || '5173'}`);
+const defaultApi = sanitizeBaseUrl(import.meta.env.VITE_API_URL as string | undefined);
+const envGoogleUrl = sanitizeBaseUrl(import.meta.env.VITE_GOOGLE_AUTH_URL as string | undefined);
+const defaultGoogle = envGoogleUrl || (defaultApi ? `${defaultApi}/auth/google` : '');
+// Prefer explicit environment configuration; fall back to the current origin when available.
+const resolveFrontendOrigin = () => {
+  const envFrontend = sanitizeBaseUrl(import.meta.env.VITE_FRONTEND_URL as string | undefined);
+  if (envFrontend) return envFrontend;
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return sanitizeBaseUrl(window.location.origin);
+  }
+  return '';
+};
+const defaultFrontend = resolveFrontendOrigin();
 
 const useGlobalStore = create<GlobalState>((set) => ({
   apiUrl: defaultApi,

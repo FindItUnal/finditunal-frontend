@@ -21,6 +21,19 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const resolveApiBase = () => {
+    const storeValueRaw = useGlobalStore.getState().apiUrl;
+    const storeValue = storeValueRaw ? storeValueRaw.trim() : '';
+    if (storeValue) {
+      return storeValue.replace(/\/$/, '');
+    }
+
+    const envValueRaw = import.meta.env.VITE_API_URL as string | undefined;
+    if (!envValueRaw) return '';
+
+    const envValue = envValueRaw.trim();
+    return envValue ? envValue.replace(/\/$/, '') : '';
+  };
 
   function pathToView(pathname: string): View {
     if (pathname.startsWith('/admin/users')) return 'admin-users';
@@ -49,8 +62,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const resp = await fetch(`${apiBase.replace(/\/$/, '')}/user/profile`, {
+        const apiBase = resolveApiBase();
+        const resp = await fetch(`${apiBase}/user/profile`, {
           method: 'GET',
           credentials: 'include',
           headers: { Accept: 'application/json' },
@@ -66,7 +79,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (location.pathname === '/' || location.pathname === '/login') {
           navigate('/dashboard');
         }
-      } catch (error) {
+      } catch {
         // ignore — user will remain unauthenticated
       }
     };
@@ -78,9 +91,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      const apiBase = import.meta.env.VITE_API_URL || useGlobalStore.getState().apiUrl;
+      const apiBase = resolveApiBase();
       await userService.logoutRequest(apiBase);
-    } catch (err) {
+    } catch {
       // ignore network errors but still clear local state
     }
 
