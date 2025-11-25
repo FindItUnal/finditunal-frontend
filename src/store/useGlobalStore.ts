@@ -10,16 +10,21 @@ export interface GlobalState {
   reset: () => void;
 }
 
-const defaultApi = (import.meta.env.VITE_API_URL as string) || 'http://localhost:3000';
-const defaultGoogle =
-  (import.meta.env.VITE_GOOGLE_AUTH_URL as string) || `${defaultApi.replace(/\/$/, '')}/auth/google`;
-// Use a central port env `VITE_PUERTO` to build the frontend origin by default.
-const portFromEnv = (import.meta.env.VITE_PUERTO as string) || (import.meta.env.VITE_PORT as string) || '';
-const defaultFrontend =
-  (import.meta.env.VITE_FRONTEND_URL as string) ||
-  (typeof window !== 'undefined'
-    ? window.location.origin
-    : `http://localhost:${portFromEnv || '5173'}`);
+// Configuración desde variables de entorno
+const defaultApi = import.meta.env.VITE_API_URL as string;
+const defaultGoogle = import.meta.env.VITE_GOOGLE_AUTH_URL as string;
+const defaultFrontend = import.meta.env.VITE_FRONTEND_URL as string;
+
+// Validar que las variables de entorno estén configuradas
+if (!defaultApi) {
+  throw new Error('VITE_API_URL no está configurada en las variables de entorno');
+}
+if (!defaultGoogle) {
+  throw new Error('VITE_GOOGLE_AUTH_URL no está configurada en las variables de entorno');
+}
+if (!defaultFrontend) {
+  throw new Error('VITE_FRONTEND_URL no está configurada en las variables de entorno');
+}
 
 const useGlobalStore = create<GlobalState>((set) => ({
   apiUrl: defaultApi,
