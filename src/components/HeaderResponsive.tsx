@@ -1,11 +1,11 @@
-import { NavLink, useNavigate } from 'react-router-dom';
-import { Package, MessageCircle, User, Users, LogOut, Menu, X } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { Package, MessageCircle, User, Users, Menu, X } from 'lucide-react';
 import ThemeToggle from './atoms/ThemeToggle';
 import unalIcon from '../assets/icon_unal.svg';
 import { useState } from 'react';
 import { mockChats } from '../data/chats';
 import useUserStore from '../store/useUserStore';
-import useGlobalStore from '../store/useGlobalStore';
+// no global store needed here
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
   `p-2 rounded-md flex items-center space-x-2 transition-colors ${
@@ -17,14 +17,6 @@ const navItemClass = ({ isActive }: { isActive: boolean }) =>
 export default function HeaderResponsive() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const user = useUserStore((s) => s.user);
-  const logoutFromStore = useUserStore((s) => s.logout);
-  const apiUrl = useGlobalStore((s) => s.apiUrl);
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await logoutFromStore(apiUrl, navigate);
-    setMobileOpen(false);
-  };
 
   return (
     <nav className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm transition-colors">
@@ -76,28 +68,11 @@ export default function HeaderResponsive() {
               <User className="w-5 h-5" />
               <span className="hidden lg:inline">Perfil</span>
             </NavLink>
-
-            <button onClick={handleLogout} className="p-2 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors">
-              <LogOut className="w-6 h-6" />
-            </button>
           </div>
 
           {/* mobile controls: icons + hamburger */}
           <div className="flex md:hidden items-center ">
-            {/* mobile messages icon with badge */}
-            <NavLink to="/messages" className="p-2 text-gray-600 dark:text-gray-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
-              <div className="relative inline-flex items-center">
-                <MessageCircle className="w-5 h-5" />
-                {mockChats && mockChats.reduce((acc, c) => acc + (c.unreadCount || 0), 0) > 0 && (
-                  <span className="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-semibold leading-none text-white bg-teal-600 rounded-full">
-                    {mockChats.reduce((acc, c) => acc + (c.unreadCount || 0), 0) > 99
-                      ? '99+'
-                      : mockChats.reduce((acc, c) => acc + (c.unreadCount || 0), 0)}
-                  </span>
-                )}
-              </div>
-            </NavLink>
-
+            {/* Mensajes ocultos en la barra superior móvil; permanecen en el menú desplegable */}
             <ThemeToggle />
 
             <button onClick={() => setMobileOpen((s) => !s)} className="p-2 text-gray-600 dark:text-gray-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
@@ -135,10 +110,6 @@ export default function HeaderResponsive() {
                   <span>Admin</span>
                 </NavLink>
               )}
-
-              <div className="flex items-center space-x-2 pt-2">
-                <button onClick={handleLogout} className="px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900">Cerrar sesión</button>
-              </div>
             </nav>
           </div>
         </div>

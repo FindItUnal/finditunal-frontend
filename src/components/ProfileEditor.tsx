@@ -1,18 +1,49 @@
-import React from 'react';
+import { useState } from 'react';
 import { useProfile } from '../hooks/useProfile';
+import { useNavigate } from 'react-router-dom';
+import useUserStore from '../store/useUserStore';
+import useGlobalStore from '../store/useGlobalStore';
+import ConfirmDialog from './molecules/ConfirmDialog';
 
 export default function ProfileEditor() {
   const { isEditing, setIsEditing, phone, setPhone, savePhone, saving, error } = useProfile();
+  const logoutFromStore = useUserStore((s) => s.logout);
+  const apiUrl = useGlobalStore((s) => s.apiUrl);
+  const navigate = useNavigate();
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await logoutFromStore(apiUrl, navigate);
+  };
 
   if (!isEditing) {
     return (
       <div>
-        <button
-          className="w-full mt-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-semibold transition-colors"
-          onClick={() => setIsEditing(true)}
-        >
-          Editar perfil
-        </button>
+        <div className="space-y-3">
+          <button
+            className="w-full mt-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-semibold transition-colors"
+            onClick={() => setIsEditing(true)}
+          >
+            Editar perfil
+          </button>
+
+          <button
+            className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold"
+            onClick={() => setConfirmOpen(true)}
+          >
+            Cerrar sesión
+          </button>
+          <ConfirmDialog
+            open={confirmOpen}
+            onOpenChange={setConfirmOpen}
+            title="Cerrar sesión"
+            description="¿Deseas cerrar sesión?"
+            confirmLabel="Cerrar sesión"
+            cancelLabel="Cancelar"
+            onConfirm={handleLogout}
+          />
+        </div>
       </div>
     );
   }
