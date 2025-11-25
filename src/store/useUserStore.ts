@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User } from '../types';
-import * as userService from '../services/userService';
+import { authService, profileService } from '../services';
 
 interface UserState {
   user: User | null;
@@ -9,8 +9,8 @@ interface UserState {
   setUser: (user: User | null) => void;
   updateUser: (patch: Partial<User>) => void;
   setLoading: (loading: boolean) => void;
-  logout: (apiBase?: string, navigate?: (path: string) => void) => Promise<void>;
-  refreshUser: (apiBase: string) => Promise<void>;
+  logout: (apiUrl: string, navigate?: (path: string) => void) => Promise<void>;
+  refreshUser: (apiUrl: string) => Promise<void>;
 }
 
 const useUserStore = create<UserState>()(
@@ -26,10 +26,9 @@ const useUserStore = create<UserState>()(
       
       setLoading: (loading: boolean) => set({ isLoading: loading }),
       
-      logout: async (apiBase?: string, navigate?: (path: string) => void) => {
+      logout: async (apiUrl: string, navigate?: (path: string) => void) => {
         try {
-          const base = apiBase || import.meta.env.VITE_API_URL || 'http://localhost:3000';
-          await userService.logoutRequest(base);
+          await authService.logout(apiUrl);
         } catch (err) {
           // ignorar errores de red pero limpiar estado local
         }
@@ -37,9 +36,9 @@ const useUserStore = create<UserState>()(
         if (navigate) navigate('/');
       },
       
-      refreshUser: async (apiBase: string) => {
+      refreshUser: async (apiUrl: string) => {
         try {
-          const data = await userService.getProfile(apiBase);
+          const data = await profileService.getProfile(apiUrl);
           set({ user: data });
         } catch (error) {
           console.error('Error refreshing user:', error);

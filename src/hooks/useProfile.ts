@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import useUserStore from '../store/useUserStore';
 import useGlobalStore from '../store/useGlobalStore';
-import * as userService from '../services/userService';
+import { profileService } from '../services';
 
 export function useProfile() {
   const user = useUserStore((s) => s.user);
@@ -35,7 +35,7 @@ export function useProfile() {
     setSaving(true);
     setError(null);
     try {
-      await userService.updatePhone(apiUrl, phone);
+      await profileService.updatePhone(apiUrl, phone);
       updateUser({ phone_number: phone } as any);
       setIsEditing(false);
     } catch (err: any) {
