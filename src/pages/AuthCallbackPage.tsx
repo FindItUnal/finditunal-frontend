@@ -1,34 +1,25 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useUserStore from '../store/useUserStore';
+import useGlobalStore from '../store/useGlobalStore';
+import { profileService } from '../services';
 
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
   const setUser = useUserStore((s) => s.setUser);
+  const apiUrl = useGlobalStore((s) => s.apiUrl);
 
   useEffect(() => {
     const loadUserAfterAuth = async () => {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      
       try {
-        const response = await fetch(`${apiBase.replace(/\/$/, '')}/user/profile`, {
-          credentials: 'include',
-          headers: { Accept: 'application/json' },
-        });
-
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
-          
-          // Redirigir según el rol
-          if (userData.role === 'admin') {
-            navigate('/admin', { replace: true });
-          } else {
-            navigate('/dashboard', { replace: true });
-          }
+        const userData = await profileService.getProfile(apiUrl);
+        setUser(userData);
+        
+        // Redirigir según el rol
+        if (userData.role === 'admin') {
+          navigate('/admin', { replace: true });
         } else {
-          // Si no hay sesión válida, redirigir al login
-          navigate('/login', { replace: true });
+          navigate('/dashboard', { replace: true });
         }
       } catch (error) {
         console.error('Error loading user after auth:', error);
@@ -37,7 +28,7 @@ export default function AuthCallbackPage() {
     };
 
     loadUserAfterAuth();
-  }, [navigate, setUser]);
+  }, [navigate, setUser, apiUrl]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
