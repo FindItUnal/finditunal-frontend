@@ -13,6 +13,18 @@ RUN if [ -f pnpm-lock.yaml ]; then npm install -g pnpm && pnpm install; \
 
 COPY . .
 
+# Build-time args (pass these with --build-arg so Vite can embed them)
+ARG VITE_API_URL
+ARG VITE_GOOGLE_AUTH_URL
+ARG VITE_PUERTO
+ARG VITE_FRONTEND_URL
+
+# Export as env so the build step sees them
+ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_GOOGLE_AUTH_URL=${VITE_GOOGLE_AUTH_URL}
+ENV VITE_PUERTO=${VITE_PUERTO}
+ENV VITE_FRONTEND_URL=${VITE_FRONTEND_URL}
+
 # Build the app
 RUN npm run build
 
