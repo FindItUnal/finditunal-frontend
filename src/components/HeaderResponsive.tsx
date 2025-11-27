@@ -1,11 +1,12 @@
-import { NavLink } from 'react-router-dom';
-import { Package, MessageCircle, User, Users, Menu, X } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { Package, MessageCircle, User, Users, LogOut, Menu, X } from 'lucide-react';
 import ThemeToggle from './atoms/ThemeToggle';
+import ConfirmDialog from './molecules/ConfirmDialog';
 import unalIcon from '../assets/icon_unal.svg';
 import { useState } from 'react';
 import { mockChats } from '../data/chats';
 import useUserStore from '../store/useUserStore';
-// no global store needed here
+import useGlobalStore from '../store/useGlobalStore';
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
   `p-2 rounded-md flex items-center space-x-2 transition-colors ${
@@ -16,7 +17,17 @@ const navItemClass = ({ isActive }: { isActive: boolean }) =>
 
 export default function HeaderResponsive() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const user = useUserStore((s) => s.user);
+  const logoutFromStore = useUserStore((s) => s.logout);
+  const apiUrl = useGlobalStore((s) => s.apiUrl);
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logoutFromStore(apiUrl, navigate);
+    setLogoutDialogOpen(false);
+    setMobileOpen(false);
+  };
 
   return (
     <nav className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm transition-colors">
@@ -68,11 +79,20 @@ export default function HeaderResponsive() {
               <User className="w-5 h-5" />
               <span className="hidden lg:inline">Perfil</span>
             </NavLink>
+
+            <button 
+              onClick={() => setLogoutDialogOpen(true)} 
+              className="p-2 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+              title="Cerrar sesión"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
 
           {/* mobile controls: icons + hamburger */}
           <div className="flex md:hidden items-center ">
-            {/* Mensajes ocultos en la barra superior móvil; permanecen en el menú desplegable */}
+
+
             <ThemeToggle />
 
             <button onClick={() => setMobileOpen((s) => !s)} className="p-2 text-gray-600 dark:text-gray-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
@@ -110,10 +130,34 @@ export default function HeaderResponsive() {
                   <span>Admin</span>
                 </NavLink>
               )}
+
+              <div className="flex items-center space-x-2 pt-2 border-t border-gray-200 dark:border-gray-700 mt-2">
+                <button 
+                  onClick={() => {
+                    setLogoutDialogOpen(true);
+                    setMobileOpen(false);
+                  }} 
+                  className="w-full px-3 py-2 rounded-md text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center space-x-2 transition-colors"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span>Cerrar sesión</span>
+                </button>
+              </div>
             </nav>
           </div>
         </div>
       )}
+
+      {/* Diálogo de confirmación de cierre de sesión */}
+      <ConfirmDialog
+        open={logoutDialogOpen}
+        onOpenChange={setLogoutDialogOpen}
+        title="Cerrar sesión"
+        description="¿Estás seguro de que deseas cerrar sesión? Tendrás que volver a autenticarte para acceder."
+        confirmLabel="Cerrar sesión"
+        cancelLabel="Cancelar"
+        onConfirm={handleLogout}
+      />
     </nav>
   );
 }

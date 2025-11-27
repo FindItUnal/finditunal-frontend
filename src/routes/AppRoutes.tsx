@@ -60,20 +60,25 @@ export default function AppRoutes() {
         <Route
           path="/admin"
           element={
+            <PrivateRoute requireAdmin>
               <AdminDashboardPage />
+            </PrivateRoute>
           }
         />
         <Route
           path="/admin/users"
           element={
+            <PrivateRoute requireAdmin>
               <AdminUsersPage />
-            
+            </PrivateRoute>
           }
         />
         <Route
           path="/admin/reports"
           element={
+            <PrivateRoute requireAdmin>
               <AdminReportsPage />
+            </PrivateRoute>
           }
         />
       </Route>
