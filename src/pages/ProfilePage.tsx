@@ -1,55 +1,140 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 import { PageTemplate } from '../components/templates';
 import PublishModal from '../components/organisms/PublishModal';
 import ConfirmDialog from '../components/molecules/ConfirmDialog';
 import PublicationsList from '../components/organisms/PublicationsList';
-// user data accessed inside ProfileInfo via the store
 import { Item } from '../types';
 import ProfileInfo from '../components/ProfileInfo';
 import ProfileEditor from '../components/ProfileEditor';
 import { useProfile } from '../hooks/useProfile';
-
-const initialMockUserItems: Item[] = [
-  {
-    id: '1',
-    title: 'Audífonos Sony',
-    description: 'Encontrados en el laboratorio de cómputo',
-    category: 'Electrónicos',
-    imageUrl: 'https://images.pexels.com/photos/3394650/pexels-photo-3394650.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Laboratorio 3',
-    date: '2025-10-15',
-    status: 'found',
-    userId: '1',
-    userName: 'Usuario Demo',
-    createdAt: '2025-10-15T10:00:00Z',
-  },
-  {
-    id: '2',
-    title: 'Cuaderno de Matemáticas',
-    description: 'Cuaderno con apuntes de cálculo',
-    category: 'Libros',
-    imageUrl: 'https://images.pexels.com/photos/1329711/pexels-photo-1329711.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Aula 201',
-    date: '2025-10-12',
-    status: 'claimed',
-    userId: '1',
-    userName: 'Usuario Demo',
-    createdAt: '2025-10-12T14:30:00Z',
-  },
-];
+import useUserStore from '../store/useUserStore';
+import useGlobalStore from '../store/useGlobalStore';
+import {
+  reportService,
+  categoryService,
+  locationService,
+  Category,
+  Location,
+} from '../services';
 
 export default function ProfilePage() {
-  // user is accessed inside ProfileInfo via the store
   const navigate = useNavigate();
-  const [userItems, setUserItems] = useState<Item[]>(initialMockUserItems);
+  const user = useUserStore((s) => s.user);
+  const apiUrl = useGlobalStore((s) => s.apiUrl);
+  const [userItems, setUserItems] = useState<Item[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
   const [publishOpen, setPublishOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toDeleteId, setToDeleteId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const { isEditing } = useProfile();
+  const refreshUser = useUserStore((s) => s.refreshUser);
+  const hasLoadedProfile = useRef(false);
+
+  // Obtener user_id del usuario autenticado
+  const getUserId = (): string | number => {
+    if (!user) {
+      throw new Error('Usuario no autenticado');
+    }
+    return user.user_id || user.id;
+  };
+
+  // Cargar perfil del usuario desde el backend al montar
+  useEffect(() => {
+    if (hasLoadedProfile.current) return;
+    if (!user) return;
+    
+    hasLoadedProfile.current = true;
+    
+    const loadProfile = async () => {
+      try {
+        await refreshUser(apiUrl);
+      } catch (err) {
+        console.error('Error al cargar perfil:', err);
+      }
+    };
+
+    loadProfile();
+  }, [apiUrl, refreshUser, user]);
+
+  // Cargar categorías y ubicaciones
+  useEffect(() => {
+    const loadData = async () => {
+      if (!user) return;
+
+      try {
+        const userId = user.user_id || user.id;
+        const [categoriesData, locationsData] = await Promise.all([
+          categoryService.getAllCategories(apiUrl, userId),
+          locationService.getAllLocations(apiUrl, userId),
+        ]);
+        setCategories(categoriesData);
+        setLocations(locationsData);
+      } catch (err) {
+        console.error('Error al cargar categorías/ubicaciones:', err);
+      }
+    };
+
+    loadData();
+  }, [user, apiUrl]);
+
+  // Cargar reportes del usuario
+  useEffect(() => {
+    const loadUserReports = async () => {
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Esperar a que se carguen las categorías y ubicaciones
+      if (categories.length === 0 || locations.length === 0) {
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        const userId = user.user_id || user.id;
+        const reports = await reportService.getUserReports(apiUrl, userId);
+        
+        // Mapear reportes a Items usando categorías y ubicaciones
+        const mappedItems = reports.map((report) =>
+          reportService.mapUserReportToItem(report, categories, locations)
+        );
+        setUserItems(mappedItems);
+      } catch (err) {
+        console.error('Error al cargar reportes:', err);
+        setError(err instanceof Error ? err.message : 'Error al cargar las publicaciones');
+        setUserItems([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUserReports();
+  }, [user, apiUrl, categories, locations]);
+
+  // Función para recargar reportes
+  const reloadReports = async () => {
+    if (!user || categories.length === 0 || locations.length === 0) return;
+
+    try {
+      const userId = getUserId();
+      const reports = await reportService.getUserReports(apiUrl, userId);
+      const mappedItems = reports.map((report) =>
+        reportService.mapUserReportToItem(report, categories, locations)
+      );
+      setUserItems(mappedItems);
+    } catch (err) {
+      console.error('Error al recargar reportes:', err);
+    }
+  };
 
   return (
     <PageTemplate>
@@ -71,14 +156,23 @@ export default function ProfilePage() {
                   <span className="font-bold text-gray-900 dark:text-white">{userItems.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Objetos Entregado</span>
+                  <span className="text-gray-600 dark:text-gray-400">Objetos encontrados</span>
                   <span className="font-bold text-gray-900 dark:text-white">
-                    {userItems.filter((item) => item.status === 'claimed').length}
+                    {userItems.filter((item) => item.status === 'found').length}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Miembro desde</span>
-                  <span className="font-bold text-gray-900 dark:text-white">Oct 2025</span>
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {user?.createdAt
+                      ? (() => {
+                          const date = new Date(user.createdAt);
+                          const month = date.toLocaleDateString('es-ES', { month: 'short' });
+                          const year = date.getFullYear();
+                          return `${month.charAt(0).toUpperCase() + month.slice(1)} ${year}`;
+                        })()
+                      : '—'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -100,21 +194,36 @@ export default function ProfilePage() {
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 transition-colors">
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Mis Publicaciones</h3>
                 <div>
-                  <PublicationsList
-                    items={userItems}
-                    onEdit={(item) => {
-                      setEditingItem(item);
-                      setPublishOpen(true);
-                    }}
-                    onDelete={(id) => {
-                      setToDeleteId(id);
-                      setConfirmOpen(true);
-                    }}
-                    onGoDashboard={() => navigate('/dashboard')}
-                    onMarkClaimed={(id) => {
-                      setUserItems((prev) => prev.map((it) => (it.id === id ? { ...it, status: 'claimed' } : it)));
-                    }}
-                  />
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-center">
+                        <div className="w-16 h-16 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-gray-600 dark:text-gray-400">Cargando publicaciones...</p>
+                      </div>
+                    </div>
+                  ) : error ? (
+                    <div className="text-center py-12">
+                      <p className="text-red-600 dark:text-red-400 mb-2">Error al cargar publicaciones</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">{error}</p>
+                    </div>
+                  ) : (
+                    <PublicationsList
+                      items={userItems}
+                      onEdit={(item) => {
+                        setEditingItem(item);
+                        setPublishOpen(true);
+                      }}
+                      onDelete={(id) => {
+                        setToDeleteId(id);
+                        setConfirmOpen(true);
+                      }}
+                      onGoDashboard={() => navigate('/dashboard')}
+                      onMarkClaimed={(id) => {
+                        // Esta funcionalidad no está en el backend, se puede mantener como local
+                        setUserItems((prev) => prev.map((it) => (it.id === id ? { ...it, status: 'claimed' } : it)));
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -128,6 +237,8 @@ export default function ProfilePage() {
           setPublishOpen(open);
           if (!open) setEditingItem(null);
         }}
+        categories={categories}
+        locations={locations}
         initialData={
           editingItem
             ? {
@@ -139,27 +250,63 @@ export default function ProfilePage() {
                 type: editingItem.status === 'found' ? 'found' : 'lost',
                 found_date: editingItem.date,
                 imageUrl: editingItem.imageUrl,
+                contact_method: editingItem.contact_method || '',
               }
             : undefined
         }
-        submitLabel={editingItem ? 'Editar' : 'Publicar'}
-        onPublish={(payload) => {
-          if (!editingItem) return;
-          setUserItems((prev) =>
-            prev.map((it) =>
-              it.id === editingItem.id
-                ? {
-                    ...it,
-                    title: payload.title ?? it.title,
-                    description: payload.description ?? it.description,
-                    category: payload.category ?? it.category,
-                    location: payload.location ?? it.location,
-                    date: payload.found_date ?? it.date,
-                    imageUrl: payload.image_preview ?? it.imageUrl,
-                  }
-                : it
-            )
-          );
+        submitLabel={editingItem ? 'Guardar cambios' : 'Publicar'}
+        onPublish={async (payload) => {
+          if (!user) return;
+
+          try {
+            const userId = getUserId();
+
+            // Convertir nombres a IDs
+            const categoryId = reportService.findCategoryId(payload.category, categories);
+            const locationId = reportService.findLocationId(payload.location, locations);
+
+            if (!categoryId || !locationId) {
+              throw new Error('Categoría o ubicación inválida');
+            }
+
+            // Convertir tipo del frontend al formato del backend
+            const status: 'perdido' | 'encontrado' = payload.type === 'lost' ? 'perdido' : 'encontrado';
+
+            if (payload.reportId) {
+              // Modo edición
+              const reportId = parseInt(payload.reportId, 10);
+              await reportService.updateReport(apiUrl, userId, reportId, {
+                category_id: categoryId,
+                location_id: locationId,
+                title: payload.title,
+                description: payload.description,
+                status: status,
+                date_lost_or_found: payload.found_date,
+                contact_method: payload.contact_method,
+                image: payload.image,
+              });
+            } else {
+              // Modo creación (no debería pasar desde ProfilePage, pero por si acaso)
+              await reportService.createReport(apiUrl, userId, {
+                category_id: categoryId,
+                location_id: locationId,
+                title: payload.title,
+                description: payload.description,
+                status: status,
+                date_lost_or_found: payload.found_date,
+                contact_method: payload.contact_method,
+                image: payload.image,
+              });
+            }
+
+            // Recargar reportes después de editar
+            await reloadReports();
+            setPublishOpen(false);
+            setEditingItem(null);
+          } catch (err) {
+            console.error('Error al guardar publicación:', err);
+            alert(err instanceof Error ? err.message : 'Error al guardar la publicación');
+          }
         }}
       />
       <ConfirmDialog
@@ -172,11 +319,22 @@ export default function ProfilePage() {
         description="¿Deseas eliminar esta publicación? Esta acción no se puede deshacer."
         confirmLabel="Eliminar"
         cancelLabel="Cancelar"
-        onConfirm={() => {
-          if (!toDeleteId) return;
-          setUserItems((prev) => prev.filter((it) => it.id !== toDeleteId));
-          setToDeleteId(null);
-          setConfirmOpen(false);
+        onConfirm={async () => {
+          if (!toDeleteId || !user) return;
+
+          try {
+            const userId = getUserId();
+            const reportId = parseInt(toDeleteId, 10);
+            await reportService.deleteReport(apiUrl, userId, reportId);
+            
+            // Recargar reportes después de eliminar
+            await reloadReports();
+            setToDeleteId(null);
+            setConfirmOpen(false);
+          } catch (err) {
+            console.error('Error al eliminar publicación:', err);
+            alert(err instanceof Error ? err.message : 'Error al eliminar la publicación');
+          }
         }}
       />
     </PageTemplate>

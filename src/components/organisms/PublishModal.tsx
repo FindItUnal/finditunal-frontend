@@ -1,13 +1,25 @@
 import * as Dialog from '@radix-ui/react-dialog';
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, FormEvent, useEffect, useMemo } from 'react';
 import { X, Upload } from 'lucide-react';
+import { Category } from '../../services/categoryService';
+import { Location } from '../../services/locationService';
 
 interface PublishModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onPublish?: (payload: any) => void;
-  categories?: string[];
-  locations?: string[];
+  onPublish?: (payload: {
+    title: string;
+    description: string;
+    category: string;
+    location: string;
+    type: 'found' | 'lost';
+    found_date: string;
+    contact_method: string;
+    image?: File;
+    reportId?: string; // Para modo edición
+  }) => void;
+  categories?: Category[];
+  locations?: Location[];
   /** If provided, the modal will initialize the form with these values (edit mode) */
   initialData?: {
     id?: string;
@@ -18,69 +30,61 @@ interface PublishModalProps {
     type?: 'found' | 'lost';
     found_date?: string;
     imageUrl?: string;
+    contact_method?: string;
   };
   /** Label for the submit button (default: Publicar) */
   submitLabel?: string;
+  isLoading?: boolean;
 }
-
-const defaultCategories = [
-  'Electrónicos',
-  'Documentos',
-  'Ropa y accesorios',
-  'Libros y útiles',
-  'Llaves',
-  'Carteras y bolsos',
-  'Otros',
-];
-
-const defaultLocations = [
-  'Edificio 401',
-  'Edificio 405',
-  'Biblioteca Central',
-  'Cafetería',
-  'Auditorio',
-  'Plaza central',
-  'Parqueadero',
-  'Otro',
-];
 
 export default function PublishModal({ 
   open, 
   onOpenChange, 
   onPublish, 
-  categories = defaultCategories, 
-  locations = defaultLocations, 
+  categories = [], 
+  locations = [], 
   initialData, 
-  submitLabel = 'Publicar' 
+  submitLabel = 'Publicar',
+  isLoading = false
 }: PublishModalProps) {
+  // Extraer nombres de categorías y ubicaciones para mostrar (memoizado para evitar re-renders)
+  const categoryNames = useMemo(() => categories.map(cat => cat.name), [categories]);
+  const locationNames = useMemo(() => locations.map(loc => loc.name), [locations]);
+
   const [formData, setFormData] = useState({
     title: initialData?.title ?? '',
     description: initialData?.description ?? '',
-    category: initialData?.category ?? (categories[0] || ''),
-    location: initialData?.location ?? (locations[0] || ''),
-    type: (initialData?.type as 'found' | 'lost') ?? 'found',
+    category: initialData?.category ?? '',
+    location: initialData?.location ?? '',
+    type: (initialData?.type as 'found' | 'lost') ?? 'lost',
     found_date: initialData?.found_date ?? new Date().toISOString().split('T')[0],
+    contact_method: initialData?.contact_method ?? '',
   });
   const [imagePreview, setImagePreview] = useState<string | null>(initialData?.imageUrl ?? null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
-  // Reset form when initialData changes or modal opens
+  // Reset form SOLO cuando se abre el modal (no cuando cambian las categorías/ubicaciones)
   useEffect(() => {
     if (open) {
       setFormData({
         title: initialData?.title ?? '',
         description: initialData?.description ?? '',
-        category: initialData?.category ?? (categories[0] || ''),
-        location: initialData?.location ?? (locations[0] || ''),
-        type: (initialData?.type as 'found' | 'lost') ?? 'found',
+        category: initialData?.category ?? '', // Vacío para mostrar placeholder
+        location: initialData?.location ?? '', // Vacío para mostrar placeholder
+        type: (initialData?.type as 'found' | 'lost') ?? 'lost',
         found_date: initialData?.found_date ?? new Date().toISOString().split('T')[0],
+        contact_method: initialData?.contact_method ?? '',
       });
       setImagePreview(initialData?.imageUrl ?? null);
+      setImageFile(null);
     }
-  }, [open, initialData, categories]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialData?.id]); // Solo resetear cuando cambie open o el id del item a editar
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => setImagePreview(reader.result as string);
       reader.readAsDataURL(file);
@@ -89,9 +93,12 @@ export default function PublishModal({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const payload = { ...formData, image_preview: imagePreview };
+    const payload = {
+      ...formData,
+      image: imageFile || undefined,
+      reportId: initialData?.id,
+    };
     if (onPublish) onPublish(payload);
-    onOpenChange(false);
   };
 
   const modalTitle = submitLabel.toLowerCase().includes('editar') ? 'Editar objeto' : 'Publicar objeto';
@@ -121,36 +128,32 @@ export default function PublishModal({
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4 publish-modal-scroll">
             {/* Type Selection */}
             <div className="flex gap-3">
-              <label className="flex-1">
-                <input
-                  type="radio"
-                  name="type"
-                  value="found"
-                  checked={formData.type === 'found'}
-                  onChange={() => setFormData({ ...formData, type: 'found' })}
-                  className="sr-only peer"
-                />
-                <div className="cursor-pointer p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg peer-checked:border-teal-600 peer-checked:bg-teal-50 dark:peer-checked:bg-teal-900/20 transition-all">
-                  <p className="font-semibold text-center text-gray-900 dark:text-white text-sm">
-                    Objeto encontrado
-                  </p>
-                </div>
-              </label>
-              <label className="flex-1">
-                <input
-                  type="radio"
-                  name="type"
-                  value="lost"
-                  checked={formData.type === 'lost'}
-                  onChange={() => setFormData({ ...formData, type: 'lost' })}
-                  className="sr-only peer"
-                />
-                <div className="cursor-pointer p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg peer-checked:border-orange-600 peer-checked:bg-orange-50 dark:peer-checked:bg-orange-900/20 transition-all">
-                  <p className="font-semibold text-center text-gray-900 dark:text-white text-sm">
-                    Objeto perdido
-                  </p>
-                </div>
-              </label>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, type: 'found' })}
+                className={`flex-1 p-3 border-2 rounded-lg transition-all cursor-pointer ${
+                  formData.type === 'found'
+                    ? 'border-teal-600 bg-teal-50 dark:bg-teal-900/20'
+                    : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                }`}
+              >
+                <p className="font-semibold text-center text-gray-900 dark:text-white text-sm">
+                  Objeto encontrado
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, type: 'lost' })}
+                className={`flex-1 p-3 border-2 rounded-lg transition-all cursor-pointer ${
+                  formData.type === 'lost'
+                    ? 'border-orange-600 bg-orange-50 dark:bg-orange-900/20'
+                    : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                }`}
+              >
+                <p className="font-semibold text-center text-gray-900 dark:text-white text-sm">
+                  Objeto perdido
+                </p>
+              </button>
             </div>
 
             {/* Title */}
@@ -171,13 +174,12 @@ export default function PublishModal({
             {/* Description */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Descripción
+                Descripción <span className="text-gray-400 font-normal">(opcional)</span>
               </label>
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Describe el objeto con el mayor detalle posible..."
-                required
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all resize-none text-sm"
               />
@@ -192,9 +194,11 @@ export default function PublishModal({
                 <select
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  required
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all text-sm"
                 >
-                  {categories.map((cat) => (
+                  <option value="" disabled>Selecciona una categoría</option>
+                  {categoryNames.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
@@ -207,13 +211,30 @@ export default function PublishModal({
                 <select
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  required
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all text-sm"
                 >
-                  {locations.map((loc) => (
+                  <option value="" disabled>Selecciona una ubicación</option>
+                  {locationNames.map((loc) => (
                     <option key={loc} value={loc}>{loc}</option>
                   ))}
                 </select>
               </div>
+            </div>
+
+            {/* Contact Method */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Método de contacto
+              </label>
+              <input
+                type="text"
+                value={formData.contact_method}
+                onChange={(e) => setFormData({ ...formData, contact_method: e.target.value })}
+                placeholder="Ejemplo: email@ejemplo.com o 3001234567"
+                required
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-all text-sm"
+              />
             </div>
 
             {/* Date */}
@@ -261,9 +282,10 @@ export default function PublishModal({
               </Dialog.Close>
               <button 
                 type="submit" 
-                className="flex-1 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-all text-sm"
+                disabled={isLoading}
+                className="flex-1 px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 disabled:cursor-not-allowed text-white font-semibold transition-all text-sm"
               >
-                {submitLabel}
+                {isLoading ? 'Guardando...' : submitLabel}
               </button>
             </div>
           </form>

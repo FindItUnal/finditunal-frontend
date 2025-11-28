@@ -22,8 +22,10 @@ export function useSearchFilter(
         const matchesSearch =
           item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
           item.description.toLowerCase().includes(searchTerm.toLowerCase());
+        // Comparación case-insensitive y normalizada (sin espacios extra)
         const matchesCategory =
-          selectedCategory === 'Todas' || item.category === selectedCategory;
+          selectedCategory === 'Todas' || 
+          item.category.trim().toLowerCase() === selectedCategory.trim().toLowerCase();
         return matchesSearch && matchesCategory;
       });
     },

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTemplate } from '../components/templates';
 import { SearchFilterBar, ItemGrid, EmptyState } from '../components/organisms';
@@ -7,104 +7,205 @@ import { useSearchFilter, useModal } from '../hooks';
 import { Item } from '../types';
 import ReportDialog from '../components/molecules/ReportDialog';
 import useUserStore from '../store/useUserStore';
+import useGlobalStore from '../store/useGlobalStore';
+import {
+  objectService,
+  mapBackendObjectToItem,
+  categoryService,
+  locationService,
+  reportService,
+  Category,
+  Location,
+} from '../services';
 
-// Mock data
-const mockItems: Item[] = [
-  {
-    id: '1',
-    title: 'iPhone 13 Pro',
-    description: 'Encontrado en la biblioteca, con funda azul',
-    category: 'Electrónicos',
-    imageUrl: 'https://images.pexels.com/photos/788946/pexels-photo-788946.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Biblioteca Central',
-    date: '2025-10-20',
-    status: 'found',
-    userId: '2',
-    userName: 'María García',
-    createdAt: '2025-10-20T10:00:00Z',
-  },
-  {
-    id: '2',
-    title: 'Mochila negra Nike',
-    description: 'Mochila deportiva con libros de ingeniería',
-    category: 'Mochilas',
-    imageUrl: 'https://images.pexels.com/photos/2905238/pexels-photo-2905238.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Gimnasio Universitario',
-    date: '2025-10-19',
-    status: 'found',
-    userId: '3',
-    userName: 'Carlos Ruiz',
-    createdAt: '2025-10-19T14:30:00Z',
-  },
-  {
-    id: '3',
-    title: 'Laptop Dell',
-    description: 'Laptop con stickers de programación',
-    category: 'Electrónicos',
-    imageUrl: 'https://images.pexels.com/photos/18105/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Aula 305',
-    date: '2025-10-18',
-    status: 'found',
-    userId: '4',
-    userName: 'Ana López',
-    createdAt: '2025-10-18T16:45:00Z',
-  },
-  {
-    id: '4',
-    title: 'Llaves con llavero rojo',
-    description: 'Juego de llaves con llavero de Marvel',
-    category: 'Llaves',
-    imageUrl: 'https://images.pexels.com/photos/277572/pexels-photo-277572.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Cafetería',
-    date: '2025-10-21',
-    status: 'found',
-    userId: '5',
-    userName: 'Pedro Martínez',
-    createdAt: '2025-10-21T09:15:00Z',
-  },
-  {
-    id: '5',
-    title: 'Audífonos Bluetooth',
-    description: 'Audífonos Sony negros con estuche',
-    category: 'Electrónicos',
-    imageUrl: 'https://images.pexels.com/photos/3394650/pexels-photo-3394650.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Laboratorio de Cómputo',
-    date: '2025-10-17',
-    status: 'found',
-    userId: '6',
-    userName: 'Laura Fernández',
-    createdAt: '2025-10-17T11:20:00Z',
-  },
-  {
-    id: '6',
-    title: 'Libro Cálculo II',
-    description: 'Libro con nombre en la primera página',
-    category: 'Libros',
-    imageUrl: 'https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Salón 201',
-    date: '2025-10-22',
-    status: 'found',
-    userId: '7',
-    userName: 'Roberto Díaz',
-    createdAt: '2025-10-22T13:00:00Z',
-  },
-];
-
-const categories = ['Todas', 'Electrónicos', 'Mochilas', 'Llaves', 'Libros', 'Ropa', 'Documentos', 'Otros'];
+// Categorías por defecto (se reemplazarán con las del backend)
+const defaultCategories = ['Todas'];
 
 export default function DashboardPage() {
   const user = useUserStore((s) => s.user);
+  const apiUrl = useGlobalStore((s) => s.apiUrl);
   const navigate = useNavigate();
   const { searchTerm, setSearchTerm, selectedCategory, setSelectedCategory, filterItems } = useSearchFilter('Todas');
   const publishModal = useModal();
   const [reportOpen, setReportOpen] = useState(false);
   const [reportItemId, setReportItemId] = useState<string | null>(null);
+  const [items, setItems] = useState<Item[]>([]);
+  const [categories, setCategories] = useState<string[]>(defaultCategories);
+  const [backendCategories, setBackendCategories] = useState<Category[]>([]);
+  const [backendLocations, setBackendLocations] = useState<Location[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
 
-  const filteredItems = filterItems(mockItems);
+  // Obtener user_id del usuario autenticado
+  const getUserId = (): string | number => {
+    if (!user) {
+      throw new Error('Usuario no autenticado');
+    }
+    // Usar user_id si está disponible, sino usar id
+    return user.user_id || user.id;
+  };
 
-  const handlePublish = (data: any) => {
-    console.log('Publishing item:', data);
-    alert(`Objeto publicado: ${data.title}`);
+  // Cargar categorías del backend
+  useEffect(() => {
+    const loadCategories = async () => {
+      if (!user) return;
+
+      try {
+        const userId = user.user_id || user.id;
+        const categoriesData = await categoryService.getAllCategories(apiUrl, userId);
+        setBackendCategories(categoriesData);
+        // Agregar "Todas" al inicio y luego las categorías del backend
+        const categoryNames = ['Todas', ...categoriesData.map((cat) => cat.name)];
+        setCategories(categoryNames);
+      } catch (err) {
+        console.error('Error al cargar categorías:', err);
+        // Si falla, usar categorías por defecto
+        setCategories(defaultCategories);
+      }
+    };
+
+    loadCategories();
+  }, [user, apiUrl]);
+
+  // Cargar ubicaciones del backend
+  useEffect(() => {
+    const loadLocations = async () => {
+      if (!user) return;
+
+      try {
+        const userId = user.user_id || user.id;
+        const locationsData = await locationService.getAllLocations(apiUrl, userId);
+        setBackendLocations(locationsData);
+      } catch (err) {
+        console.error('Error al cargar ubicaciones:', err);
+      }
+    };
+
+    loadLocations();
+  }, [user, apiUrl]);
+
+  // Cargar objetos del backend
+  useEffect(() => {
+    const loadObjects = async () => {
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        const userId = getUserId();
+        const backendObjects = await objectService.getAllObjects(apiUrl, userId);
+        const mappedItems = backendObjects.map(mapBackendObjectToItem);
+        setItems(mappedItems);
+      } catch (err) {
+        console.error('Error al cargar objetos:', err);
+        setError(err instanceof Error ? err.message : 'Error al cargar los objetos');
+        setItems([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadObjects();
+  }, [user, apiUrl]);
+
+  // Función para recargar objetos
+  const reloadObjects = async () => {
+    if (!user) return;
+
+    try {
+      const userId = getUserId();
+      const backendObjects = await objectService.getAllObjects(apiUrl, userId);
+      const mappedItems = backendObjects.map(mapBackendObjectToItem);
+      setItems(mappedItems);
+    } catch (err) {
+      console.error('Error al recargar objetos:', err);
+    }
+  };
+
+  const filteredItems = filterItems(items);
+
+  const handlePublish = async (data: {
+    title: string;
+    description: string;
+    category: string;
+    location: string;
+    type: 'found' | 'lost';
+    found_date: string;
+    contact_method: string;
+    image?: File;
+    reportId?: string;
+  }) => {
+    if (!user) return;
+
+    try {
+      setIsPublishing(true);
+      setError(null);
+
+      const userId = getUserId();
+
+      // Convertir nombres a IDs
+      const categoryId = reportService.findCategoryId(data.category, backendCategories);
+      const locationId = reportService.findLocationId(data.location, backendLocations);
+
+      if (!categoryId || !locationId) {
+        throw new Error('Categoría o ubicación inválida');
+      }
+
+      // Convertir tipo del frontend al formato del backend
+      const status: 'perdido' | 'encontrado' = data.type === 'lost' ? 'perdido' : 'encontrado';
+
+      if (data.reportId) {
+        // Modo edición
+        const reportId = parseInt(data.reportId, 10);
+        await reportService.updateReport(apiUrl, userId, reportId, {
+          category_id: categoryId,
+          location_id: locationId,
+          title: data.title,
+          description: data.description,
+          status: status,
+          date_lost_or_found: data.found_date,
+          contact_method: data.contact_method,
+          image: data.image,
+        });
+      } else {
+        // Modo creación
+        await reportService.createReport(apiUrl, userId, {
+          category_id: categoryId,
+          location_id: locationId,
+          title: data.title,
+          description: data.description,
+          status: status,
+          date_lost_or_found: data.found_date,
+          contact_method: data.contact_method,
+          image: data.image,
+        });
+      }
+
+      // Recargar objetos después de crear/editar
+      await reloadObjects();
+      publishModal.close();
+      setEditingItem(null);
+    } catch (err) {
+      console.error('Error al publicar objeto:', err);
+      setError(err instanceof Error ? err.message : 'Error al publicar el objeto');
+      alert(err instanceof Error ? err.message : 'Error al publicar el objeto');
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleEdit = (item: Item) => {
+    // Buscar la categoría y ubicación originales del objeto
+    const backendObject = items.find((i) => i.id === item.id);
+    if (backendObject) {
+      setEditingItem(item);
+      publishModal.open();
+    }
   };
 
   return (
@@ -122,7 +223,19 @@ export default function DashboardPage() {
           onPublish={publishModal.open}
         />
 
-        {filteredItems.length > 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-400">Cargando objetos...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <EmptyState
+            title="Error al cargar objetos"
+            description={error}
+          />
+        ) : filteredItems.length > 0 ? (
           <ItemGrid
             items={filteredItems}
             onItemOpen={(id) => {
@@ -151,10 +264,31 @@ export default function DashboardPage() {
       <PublishModal
         open={publishModal.isOpen}
         onOpenChange={(open) => {
-          if (!open) publishModal.close();
+          if (!open) {
+            publishModal.close();
+            setEditingItem(null);
+          }
         }}
         onPublish={handlePublish}
-        categories={categories.filter((c) => c !== 'Todas')}
+        categories={backendCategories}
+        locations={backendLocations}
+        initialData={
+          editingItem
+            ? {
+                id: editingItem.id,
+                title: editingItem.title,
+                description: editingItem.description,
+                category: editingItem.category,
+                location: editingItem.location,
+                type: editingItem.status === 'lost' ? 'lost' : 'found',
+                found_date: editingItem.date,
+                imageUrl: editingItem.imageUrl,
+                contact_method: editingItem.contact_method || '',
+              }
+            : undefined
+        }
+        submitLabel={editingItem ? 'Guardar cambios' : 'Publicar'}
+        isLoading={isPublishing}
       />
 
       <ReportDialog

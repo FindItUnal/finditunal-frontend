@@ -25,6 +25,7 @@ export interface Item {
   userName: string;
   userAvatar?: string;
   createdAt: string;
+  contact_method?: string;
 }
 
 export interface Message {
