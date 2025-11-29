@@ -1,15 +1,13 @@
 import { MapPin, Calendar, User, MessageCircle, Trash2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageTemplate } from '../components/templates';
 import ReportDialog from '../components/molecules/ReportDialog';
 import BackButton from '../components/atoms/BackButton';
 import { Button, Badge } from '../components/atoms';
 import useUserStore from '../store/useUserStore';
-import useGlobalStore from '../store/useGlobalStore';
 import ConfirmDialog from '../components/molecules/ConfirmDialog';
-import { objectService, mapBackendObjectToItem } from '../services';
-import { Item } from '../types';
+import { useObjectById } from '../hooks';
 import { formatDate } from '../utils/dateUtils';
 import { EmptyState } from '../components/organisms';
 
@@ -18,53 +16,10 @@ export default function ObjectDetailPage() {
   const { id } = useParams();
   const [reportOpen, setReportOpen] = useState(false);
   const user = useUserStore((s) => s.user);
-  const apiUrl = useGlobalStore((s) => s.apiUrl);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [object, setObject] = useState<Item | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Obtener user_id del usuario autenticado
-  const getUserId = (): string | number => {
-    if (!user) {
-      throw new Error('Usuario no autenticado');
-    }
-    return user.user_id || user.id;
-  };
-
-  // Cargar objeto del backend
-  useEffect(() => {
-    const loadObject = async () => {
-      if (!user || !id) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Convertir id string a report_id number
-        const reportId = parseInt(id, 10);
-        if (isNaN(reportId)) {
-          throw new Error('ID de objeto inválido');
-        }
-
-        const userId = getUserId();
-        const backendObject = await objectService.getObjectById(apiUrl, userId, reportId);
-        const mappedItem = mapBackendObjectToItem(backendObject, apiUrl, userId);
-        setObject(mappedItem);
-      } catch (err) {
-        console.error('Error al cargar objeto:', err);
-        setError(err instanceof Error ? err.message : 'Error al cargar el objeto');
-        setObject(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadObject();
-  }, [user, apiUrl, id]);
+  // Usar hook de TanStack Query para cargar el objeto
+  const { data: object, isLoading, error } = useObjectById(id);
 
   const statusConfig = {
     found: {
@@ -103,7 +58,7 @@ export default function ObjectDetailPage() {
       <PageTemplate>
         <BackButton to="/dashboard">Volver a explorar</BackButton>
         <EmptyState
-          title={error || 'Objeto no encontrado'}
+          title={error instanceof Error ? error.message : 'Objeto no encontrado'}
           description={error ? 'Intenta recargar la página' : 'El objeto que buscas no existe o ha sido eliminado'}
         />
       </PageTemplate>

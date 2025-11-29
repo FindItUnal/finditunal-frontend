@@ -28,7 +28,7 @@ export default function SearchFilterBar({
         <div className="flex-1">
           <SearchBar
             value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
+            onSearch={onSearchChange}
             placeholder="Buscar por nombre, descripción, ubicación..."
           />
         </div>

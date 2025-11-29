@@ -6,7 +6,7 @@ export interface SearchBarProps extends Omit<InputHTMLAttributes<HTMLInputElemen
   onSearch?: (value: string) => void;
 }
 
-export default function SearchBar({ onSearch, onChange, ...props }: SearchBarProps) {
+export default function SearchBar({ onSearch, onChange, value, ...props }: SearchBarProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange?.(e);
     onSearch?.(e.target.value);
@@ -16,6 +16,7 @@ export default function SearchBar({ onSearch, onChange, ...props }: SearchBarPro
     <Input
       type="text"
       icon={Search}
+      value={value}
       onChange={handleChange}
       {...props}
     />

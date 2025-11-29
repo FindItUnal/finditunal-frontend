@@ -1,135 +1,48 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTemplate } from '../components/templates';
 import { SearchFilterBar, ItemGrid, EmptyState } from '../components/organisms';
 import PublishModal from '../components/organisms/PublishModal';
-import { useSearchFilter, useModal } from '../hooks';
-import { Item } from '../types';
+import { useSearchFilter, useModal, useCategories, useLocations, useObjects, useReportMutations } from '../hooks';
 import ReportDialog from '../components/molecules/ReportDialog';
 import useUserStore from '../store/useUserStore';
-import useGlobalStore from '../store/useGlobalStore';
-import {
-  objectService,
-  mapBackendObjectToItem,
-  categoryService,
-  locationService,
-  reportService,
-  Category,
-  Location,
-} from '../services';
-
-// Categorías por defecto (se reemplazarán con las del backend)
-const defaultCategories = ['Todas'];
 
 export default function DashboardPage() {
   const user = useUserStore((s) => s.user);
-  const apiUrl = useGlobalStore((s) => s.apiUrl);
   const navigate = useNavigate();
-  const { searchTerm, setSearchTerm, selectedCategory, setSelectedCategory, filterItems } = useSearchFilter('Todas');
+  const { searchTerm, setSearchTerm, selectedCategory, setSelectedCategory } = useSearchFilter('Todas');
   const publishModal = useModal();
   const [reportOpen, setReportOpen] = useState(false);
   const [reportItemId, setReportItemId] = useState<string | null>(null);
-  const [items, setItems] = useState<Item[]>([]);
-  const [categories, setCategories] = useState<string[]>(defaultCategories);
-  const [backendCategories, setBackendCategories] = useState<Category[]>([]);
-  const [backendLocations, setBackendLocations] = useState<Location[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isPublishing, setIsPublishing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [editingItem, setEditingItem] = useState<Item | null>(null);
 
-  // Obtener user_id del usuario autenticado
-  const getUserId = (): string | number => {
-    if (!user) {
-      throw new Error('Usuario no autenticado');
-    }
-    // Usar user_id si está disponible, sino usar id
-    return user.user_id || user.id;
-  };
+  // Usar hooks de TanStack Query
+  const { data: backendCategories = [], isLoading: isLoadingCategories } = useCategories();
+  const { data: backendLocations = [] } = useLocations();
+  const { data: items = [], isLoading: isLoadingObjects, error: objectsError } = useObjects();
+  const { handlePublish, isPending: isPublishing } = useReportMutations();
 
-  // Cargar categorías del backend
-  useEffect(() => {
-    const loadCategories = async () => {
-      if (!user) return;
+  // Preparar categorías para el filtro (agregar "Todas" al inicio)
+  const categories = useMemo(() => {
+    return ['Todas', ...backendCategories.map((cat) => cat.name)];
+  }, [backendCategories]);
 
-      try {
-        const userId = user.user_id || user.id;
-        const categoriesData = await categoryService.getAllCategories(apiUrl, userId);
-        setBackendCategories(categoriesData);
-        // Agregar "Todas" al inicio y luego las categorías del backend
-        const categoryNames = ['Todas', ...categoriesData.map((cat) => cat.name)];
-        setCategories(categoryNames);
-      } catch (err) {
-        console.error('Error al cargar categorías:', err);
-        // Si falla, usar categorías por defecto
-        setCategories(defaultCategories);
-      }
-    };
+  // Filtrar items - usar useMemo para recalcular cuando cambien items, searchTerm o selectedCategory
+  const filteredItems = useMemo(() => {
+    if (!items || items.length === 0) return [];
+    // Aplicar filtro directamente aquí para asegurar que se recalcule correctamente
+    return items.filter((item) => {
+      const matchesSearch =
+        searchTerm === '' ||
+        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory =
+        selectedCategory === 'Todas' ||
+        item.category.trim().toLowerCase() === selectedCategory.trim().toLowerCase();
+      return matchesSearch && matchesCategory;
+    });
+  }, [items, searchTerm, selectedCategory]);
 
-    loadCategories();
-  }, [user, apiUrl]);
-
-  // Cargar ubicaciones del backend
-  useEffect(() => {
-    const loadLocations = async () => {
-      if (!user) return;
-
-      try {
-        const userId = user.user_id || user.id;
-        const locationsData = await locationService.getAllLocations(apiUrl, userId);
-        setBackendLocations(locationsData);
-      } catch (err) {
-        console.error('Error al cargar ubicaciones:', err);
-      }
-    };
-
-    loadLocations();
-  }, [user, apiUrl]);
-
-  // Cargar objetos del backend
-  useEffect(() => {
-    const loadObjects = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        setError(null);
-        const userId = getUserId();
-        const backendObjects = await objectService.getAllObjects(apiUrl, userId);
-        const mappedItems = backendObjects.map((obj) => mapBackendObjectToItem(obj, apiUrl, userId));
-        setItems(mappedItems);
-      } catch (err) {
-        console.error('Error al cargar objetos:', err);
-        setError(err instanceof Error ? err.message : 'Error al cargar los objetos');
-        setItems([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadObjects();
-  }, [user, apiUrl]);
-
-  // Función para recargar objetos
-  const reloadObjects = async () => {
-    if (!user) return;
-
-    try {
-      const userId = getUserId();
-      const backendObjects = await objectService.getAllObjects(apiUrl, userId);
-      const mappedItems = backendObjects.map((obj) => mapBackendObjectToItem(obj, apiUrl, userId));
-      setItems(mappedItems);
-    } catch (err) {
-      console.error('Error al recargar objetos:', err);
-    }
-  };
-
-  const filteredItems = filterItems(items);
-
-  const handlePublish = async (data: {
+  const handlePublishSubmit = async (data: {
     title: string;
     description: string;
     category: string;
@@ -140,73 +53,16 @@ export default function DashboardPage() {
     image?: File;
     reportId?: string;
   }) => {
-    if (!user) return;
-
     try {
-      setIsPublishing(true);
-      setError(null);
-
-      const userId = getUserId();
-
-      // Convertir nombres a IDs
-      const categoryId = reportService.findCategoryId(data.category, backendCategories);
-      const locationId = reportService.findLocationId(data.location, backendLocations);
-
-      if (!categoryId || !locationId) {
-        throw new Error('Categoría o ubicación inválida');
-      }
-
-      // Convertir tipo del frontend al formato del backend
-      const status: 'perdido' | 'encontrado' = data.type === 'lost' ? 'perdido' : 'encontrado';
-
-      if (data.reportId) {
-        // Modo edición
-        const reportId = parseInt(data.reportId, 10);
-        await reportService.updateReport(apiUrl, userId, reportId, {
-          category_id: categoryId,
-          location_id: locationId,
-          title: data.title,
-          description: data.description,
-          status: status,
-          date_lost_or_found: data.found_date,
-          contact_method: data.contact_method,
-          image: data.image,
-        });
-      } else {
-        // Modo creación
-        await reportService.createReport(apiUrl, userId, {
-          category_id: categoryId,
-          location_id: locationId,
-          title: data.title,
-          description: data.description,
-          status: status,
-          date_lost_or_found: data.found_date,
-          contact_method: data.contact_method,
-          image: data.image,
-        });
-      }
-
-      // Recargar objetos después de crear/editar
-      await reloadObjects();
+      await handlePublish(data, backendCategories, backendLocations);
       publishModal.close();
-      setEditingItem(null);
     } catch (err) {
       console.error('Error al publicar objeto:', err);
-      setError(err instanceof Error ? err.message : 'Error al publicar el objeto');
       alert(err instanceof Error ? err.message : 'Error al publicar el objeto');
-    } finally {
-      setIsPublishing(false);
     }
   };
 
-  const handleEdit = (item: Item) => {
-    // Buscar la categoría y ubicación originales del objeto
-    const backendObject = items.find((i) => i.id === item.id);
-    if (backendObject) {
-      setEditingItem(item);
-      publishModal.open();
-    }
-  };
+  const isLoading = isLoadingCategories || isLoadingObjects;
 
   return (
     <PageTemplate
@@ -230,10 +86,10 @@ export default function DashboardPage() {
               <p className="text-gray-600 dark:text-gray-400">Cargando objetos...</p>
             </div>
           </div>
-        ) : error ? (
+        ) : objectsError ? (
           <EmptyState
             title="Error al cargar objetos"
-            description={error}
+            description={objectsError instanceof Error ? objectsError.message : 'Error desconocido'}
           />
         ) : filteredItems.length > 0 ? (
           <ItemGrid
@@ -249,7 +105,6 @@ export default function DashboardPage() {
             }}
             onItemDelete={(id) => {
               // For now just alert; in a real app you'd call backend to delete and refresh list
-
               console.log(`Eliminar publicación ${id}`);
             }}
           />
@@ -266,28 +121,11 @@ export default function DashboardPage() {
         onOpenChange={(open) => {
           if (!open) {
             publishModal.close();
-            setEditingItem(null);
           }
         }}
-        onPublish={handlePublish}
+        onPublish={handlePublishSubmit}
         categories={backendCategories}
         locations={backendLocations}
-        initialData={
-          editingItem
-            ? {
-                id: editingItem.id,
-                title: editingItem.title,
-                description: editingItem.description,
-                category: editingItem.category,
-                location: editingItem.location,
-                type: editingItem.status === 'lost' ? 'lost' : 'found',
-                found_date: editingItem.date,
-                imageUrl: editingItem.imageUrl,
-                contact_method: editingItem.contact_method || '',
-              }
-            : undefined
-        }
-        submitLabel={editingItem ? 'Guardar cambios' : 'Publicar'}
         isLoading={isPublishing}
       />
 

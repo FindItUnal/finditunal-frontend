@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 import { PageTemplate } from '../components/templates';
@@ -8,42 +8,28 @@ import PublicationsList from '../components/organisms/PublicationsList';
 import { Item } from '../types';
 import ProfileInfo from '../components/ProfileInfo';
 import ProfileEditor from '../components/ProfileEditor';
-import { useProfile } from '../hooks/useProfile';
+import { useProfile, useCategories, useLocations, useUserReports, useReportMutations } from '../hooks';
 import useUserStore from '../store/useUserStore';
 import useGlobalStore from '../store/useGlobalStore';
-import {
-  reportService,
-  categoryService,
-  locationService,
-  Category,
-  Location,
-} from '../services';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
   const apiUrl = useGlobalStore((s) => s.apiUrl);
-  const [userItems, setUserItems] = useState<Item[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
   const [publishOpen, setPublishOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toDeleteId, setToDeleteId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const { isEditing } = useProfile();
   const refreshUser = useUserStore((s) => s.refreshUser);
   const hasLoadedProfile = useRef(false);
 
-  // Obtener user_id del usuario autenticado
-  const getUserId = (): string | number => {
-    if (!user) {
-      throw new Error('Usuario no autenticado');
-    }
-    return user.user_id || user.id;
-  };
+  // Usar hooks de TanStack Query
+  const { data: categories = [] } = useCategories();
+  const { data: locations = [] } = useLocations();
+  const { data: userItems = [], isLoading, error } = useUserReports();
+  const { handlePublish, deleteReport, isPending: isPublishing } = useReportMutations();
 
   // Cargar perfil del usuario desde el backend al montar
   useEffect(() => {
@@ -51,88 +37,47 @@ export default function ProfilePage() {
     if (!user) return;
     
     hasLoadedProfile.current = true;
-    
-    const loadProfile = async () => {
-      try {
-        await refreshUser(apiUrl);
-      } catch (err) {
-        console.error('Error al cargar perfil:', err);
-      }
-    };
-
-    loadProfile();
+    refreshUser(apiUrl).catch((err) => {
+      console.error('Error al cargar perfil:', err);
+    });
   }, [apiUrl, refreshUser, user]);
 
-  // Cargar categorías y ubicaciones
-  useEffect(() => {
-    const loadData = async () => {
-      if (!user) return;
+  const handlePublishSubmit = async (payload: {
+    title: string;
+    description: string;
+    category: string;
+    location: string;
+    type: 'found' | 'lost';
+    found_date: string;
+    contact_method: string;
+    image?: File;
+    reportId?: string;
+  }) => {
+    try {
+      // Si estamos editando, asegurar que el reportId esté en el payload
+      const finalPayload = editingItem && !payload.reportId
+        ? { ...payload, reportId: editingItem.id }
+        : payload;
+      await handlePublish(finalPayload, categories, locations);
+      setPublishOpen(false);
+      setEditingItem(null);
+    } catch (err) {
+      console.error('Error al guardar publicación:', err);
+      alert(err instanceof Error ? err.message : 'Error al guardar la publicación');
+    }
+  };
 
-      try {
-        const userId = user.user_id || user.id;
-        const [categoriesData, locationsData] = await Promise.all([
-          categoryService.getAllCategories(apiUrl, userId),
-          locationService.getAllLocations(apiUrl, userId),
-        ]);
-        setCategories(categoriesData);
-        setLocations(locationsData);
-      } catch (err) {
-        console.error('Error al cargar categorías/ubicaciones:', err);
-      }
-    };
-
-    loadData();
-  }, [user, apiUrl]);
-
-  // Cargar reportes del usuario
-  useEffect(() => {
-    const loadUserReports = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      // Esperar a que se carguen las categorías y ubicaciones
-      if (categories.length === 0 || locations.length === 0) {
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        setError(null);
-        const userId = user.user_id || user.id;
-        const reports = await reportService.getUserReports(apiUrl, userId);
-        
-        // Mapear reportes a Items usando categorías y ubicaciones
-        const mappedItems = reports.map((report) =>
-          reportService.mapUserReportToItem(report, categories, locations, apiUrl)
-        );
-        setUserItems(mappedItems);
-      } catch (err) {
-        console.error('Error al cargar reportes:', err);
-        setError(err instanceof Error ? err.message : 'Error al cargar las publicaciones');
-        setUserItems([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadUserReports();
-  }, [user, apiUrl, categories, locations]);
-
-  // Función para recargar reportes
-  const reloadReports = async () => {
-    if (!user || categories.length === 0 || locations.length === 0) return;
+  const handleDelete = async () => {
+    if (!toDeleteId || !user) return;
 
     try {
-      const userId = getUserId();
-      const reports = await reportService.getUserReports(apiUrl, userId);
-      const mappedItems = reports.map((report) =>
-        reportService.mapUserReportToItem(report, categories, locations, apiUrl)
-      );
-      setUserItems(mappedItems);
+      const reportId = parseInt(toDeleteId, 10);
+      await deleteReport.mutateAsync(reportId);
+      setToDeleteId(null);
+      setConfirmOpen(false);
     } catch (err) {
-      console.error('Error al recargar reportes:', err);
+      console.error('Error al eliminar publicación:', err);
+      alert(err instanceof Error ? err.message : 'Error al eliminar la publicación');
     }
   };
 
@@ -204,7 +149,9 @@ export default function ProfilePage() {
                   ) : error ? (
                     <div className="text-center py-12">
                       <p className="text-red-600 dark:text-red-400 mb-2">Error al cargar publicaciones</p>
-                      <p className="text-gray-600 dark:text-gray-400 text-sm">{error}</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">
+                        {error instanceof Error ? error.message : 'Error desconocido'}
+                      </p>
                     </div>
                   ) : (
                     <PublicationsList
@@ -220,7 +167,8 @@ export default function ProfilePage() {
                       onGoDashboard={() => navigate('/dashboard')}
                       onMarkClaimed={(id) => {
                         // Esta funcionalidad no está en el backend, se puede mantener como local
-                        setUserItems((prev) => prev.map((it) => (it.id === id ? { ...it, status: 'claimed' } : it)));
+                        // Nota: Esto no persistirá, solo es visual
+                        console.log(`Marcar como reclamado: ${id}`);
                       }}
                     />
                   )}
@@ -254,60 +202,9 @@ export default function ProfilePage() {
               }
             : undefined
         }
+        onPublish={handlePublishSubmit}
         submitLabel={editingItem ? 'Guardar cambios' : 'Publicar'}
-        onPublish={async (payload) => {
-          if (!user) return;
-
-          try {
-            const userId = getUserId();
-
-            // Convertir nombres a IDs
-            const categoryId = reportService.findCategoryId(payload.category, categories);
-            const locationId = reportService.findLocationId(payload.location, locations);
-
-            if (!categoryId || !locationId) {
-              throw new Error('Categoría o ubicación inválida');
-            }
-
-            // Convertir tipo del frontend al formato del backend
-            const status: 'perdido' | 'encontrado' = payload.type === 'lost' ? 'perdido' : 'encontrado';
-
-            if (payload.reportId) {
-              // Modo edición
-              const reportId = parseInt(payload.reportId, 10);
-              await reportService.updateReport(apiUrl, userId, reportId, {
-                category_id: categoryId,
-                location_id: locationId,
-                title: payload.title,
-                description: payload.description,
-                status: status,
-                date_lost_or_found: payload.found_date,
-                contact_method: payload.contact_method,
-                image: payload.image,
-              });
-            } else {
-              // Modo creación (no debería pasar desde ProfilePage, pero por si acaso)
-              await reportService.createReport(apiUrl, userId, {
-                category_id: categoryId,
-                location_id: locationId,
-                title: payload.title,
-                description: payload.description,
-                status: status,
-                date_lost_or_found: payload.found_date,
-                contact_method: payload.contact_method,
-                image: payload.image,
-              });
-            }
-
-            // Recargar reportes después de editar
-            await reloadReports();
-            setPublishOpen(false);
-            setEditingItem(null);
-          } catch (err) {
-            console.error('Error al guardar publicación:', err);
-            alert(err instanceof Error ? err.message : 'Error al guardar la publicación');
-          }
-        }}
+        isLoading={isPublishing}
       />
       <ConfirmDialog
         open={confirmOpen}
@@ -319,23 +216,7 @@ export default function ProfilePage() {
         description="¿Deseas eliminar esta publicación? Esta acción no se puede deshacer."
         confirmLabel="Eliminar"
         cancelLabel="Cancelar"
-        onConfirm={async () => {
-          if (!toDeleteId || !user) return;
-
-          try {
-            const userId = getUserId();
-            const reportId = parseInt(toDeleteId, 10);
-            await reportService.deleteReport(apiUrl, userId, reportId);
-            
-            // Recargar reportes después de eliminar
-            await reloadReports();
-            setToDeleteId(null);
-            setConfirmOpen(false);
-          } catch (err) {
-            console.error('Error al eliminar publicación:', err);
-            alert(err instanceof Error ? err.message : 'Error al eliminar la publicación');
-          }
-        }}
+        onConfirm={handleDelete}
       />
     </PageTemplate>
   );
