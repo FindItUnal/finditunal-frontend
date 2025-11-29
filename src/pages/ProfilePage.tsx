@@ -105,7 +105,7 @@ export default function ProfilePage() {
         
         // Mapear reportes a Items usando categorías y ubicaciones
         const mappedItems = reports.map((report) =>
-          reportService.mapUserReportToItem(report, categories, locations)
+          reportService.mapUserReportToItem(report, categories, locations, apiUrl)
         );
         setUserItems(mappedItems);
       } catch (err) {
@@ -128,7 +128,7 @@ export default function ProfilePage() {
       const userId = getUserId();
       const reports = await reportService.getUserReports(apiUrl, userId);
       const mappedItems = reports.map((report) =>
-        reportService.mapUserReportToItem(report, categories, locations)
+        reportService.mapUserReportToItem(report, categories, locations, apiUrl)
       );
       setUserItems(mappedItems);
     } catch (err) {

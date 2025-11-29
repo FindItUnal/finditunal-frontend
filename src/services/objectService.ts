@@ -1,5 +1,6 @@
 import { apiFetch } from './api';
 import { Item } from '../types';
+import { buildImageUrl } from '../utils';
 
 /**
  * Interfaz para los objetos que vienen del backend
@@ -18,8 +19,15 @@ export interface BackendObject {
 
 /**
  * Mapea un objeto del backend al formato Item del frontend
+ * @param backendObject Objeto del backend
+ * @param apiBase URL base de la API (opcional, para construir URLs de imágenes)
+ * @param userId ID del usuario (opcional, para construir URLs de imágenes)
  */
-export function mapBackendObjectToItem(backendObject: BackendObject): Item {
+export function mapBackendObjectToItem(
+  backendObject: BackendObject,
+  apiBase?: string,
+  userId?: string | number
+): Item {
   // Convertir status del backend al formato del frontend
   const statusMap: Record<'perdido' | 'encontrado', 'lost' | 'found'> = {
     perdido: 'lost',
@@ -38,7 +46,9 @@ export function mapBackendObjectToItem(backendObject: BackendObject): Item {
     title: backendObject.title,
     description: backendObject.description || '',
     category: backendObject.category,
-    imageUrl: backendObject.image_url,
+    imageUrl: apiBase && userId 
+      ? buildImageUrl(backendObject.image_url, apiBase, userId)
+      : backendObject.image_url,
     location: backendObject.location,
     date: date,
     status: statusMap[backendObject.status] || 'found',

@@ -52,7 +52,7 @@ export default function ObjectDetailPage() {
 
         const userId = getUserId();
         const backendObject = await objectService.getObjectById(apiUrl, userId, reportId);
-        const mappedItem = mapBackendObjectToItem(backendObject);
+        const mappedItem = mapBackendObjectToItem(backendObject, apiUrl, userId);
         setObject(mappedItem);
       } catch (err) {
         console.error('Error al cargar objeto:', err);

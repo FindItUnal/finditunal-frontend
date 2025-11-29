@@ -45,7 +45,13 @@ export default function ItemCard({ item, onOpen, onMessage, onReport, onDelete }
       padding="none"
     >
       <div className="h-48 bg-gray-200 dark:bg-gray-700 overflow-hidden">
-        <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+        {item.imageUrl ? (
+          <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
+            Sin imagen
+          </div>
+        )}
       </div>
 
       <div className="p-5">

@@ -2,6 +2,7 @@ import { apiFetch } from './api';
 import { Category } from './categoryService';
 import { Location } from './locationService';
 import { Item } from '../types';
+import { buildImageUrl } from '../utils';
 
 /**
  * Datos para crear un reporte
@@ -14,7 +15,7 @@ export interface CreateReportData {
   status: 'perdido' | 'encontrado';
   date_lost_or_found: string; // YYYY-MM-DD
   contact_method: string;
-  image?: File;
+  image?: File; // Se envía al backend como 'images' (array) aunque internamente solo se maneje una imagen
 }
 
 /**
@@ -28,7 +29,7 @@ export interface UpdateReportData {
   status?: 'perdido' | 'encontrado';
   date_lost_or_found?: string; // YYYY-MM-DD
   contact_method?: string;
-  image?: File;
+  image?: File; // Se envía al backend como 'images' (array) aunque internamente solo se maneje una imagen
 }
 
 /**
@@ -141,9 +142,9 @@ export const reportService = {
     formData.append('date_lost_or_found', data.date_lost_or_found);
     formData.append('contact_method', data.contact_method);
 
-    // Agregar imagen si existe
+    // Agregar imagen si existe (el backend espera 'images' como array)
     if (data.image) {
-      formData.append('image', data.image);
+      formData.append('images', data.image);
     }
 
     return fetchWithFormData<{ message: string }>(`/user/${userId}/reports`, formData, apiBase);
@@ -183,9 +184,10 @@ export const reportService = {
       formData.append('contact_method', data.contact_method);
     }
 
-    // Agregar imagen si existe
+    // Agregar imagen si existe (el backend espera 'images' como array)
+    // Nota: El endpoint PATCH actualmente no soporta subir imágenes, pero dejamos el nombre correcto para cuando se implemente
     if (data.image) {
-      formData.append('image', data.image);
+      formData.append('images', data.image);
     }
 
     return patchWithFormData<{ message: string }>(
@@ -212,13 +214,51 @@ export const reportService = {
   },
 
   /**
-   * Obtiene todos los reportes del usuario
+   * Obtiene todas las imágenes de un reporte
+   */
+  async getReportImages(
+    apiBase: string,
+    userId: string | number,
+    reportId: number
+  ): Promise<{ images: Array<{ filename: string; url: string }> }> {
+    return apiFetch<{ images: Array<{ filename: string; url: string }> }>(
+      `/user/${userId}/reports/${reportId}/images`,
+      {
+        method: 'GET',
+        baseUrl: apiBase,
+      }
+    );
+  },
+
+  /**
+   * Obtiene todos los reportes del usuario y enriquece cada reporte con su imagen
    */
   async getUserReports(apiBase: string, userId: string | number): Promise<UserReport[]> {
-    return apiFetch<UserReport[]>(`/user/${userId}/reports`, {
+    const reports = await apiFetch<UserReport[]>(`/user/${userId}/reports`, {
       method: 'GET',
       baseUrl: apiBase,
     });
+
+    // Obtener la primera imagen de cada reporte para incluirla en image_url
+    const reportsWithImages = await Promise.all(
+      reports.map(async (report) => {
+        try {
+          const imagesData = await this.getReportImages(apiBase, userId, report.report_id);
+          if (imagesData.images && imagesData.images.length > 0) {
+            return {
+              ...report,
+              image_url: imagesData.images[0].filename, // Usar el primer filename
+            };
+          }
+        } catch (error) {
+          // Si hay error al obtener imágenes, simplemente no agregar image_url
+          console.warn(`No se pudieron obtener imágenes para reporte ${report.report_id}:`, error);
+        }
+        return report;
+      })
+    );
+
+    return reportsWithImages;
   },
 
   /**
@@ -237,11 +277,16 @@ export const reportService = {
 
   /**
    * Mapea un reporte del backend al formato Item del frontend
+   * @param report Reporte del backend
+   * @param categories Lista de categorías para mapear IDs a nombres
+   * @param locations Lista de ubicaciones para mapear IDs a nombres
+   * @param apiBase URL base de la API (opcional, para construir URLs de imágenes)
    */
   mapUserReportToItem(
     report: UserReport,
     categories: Category[],
-    locations: Location[]
+    locations: Location[],
+    apiBase?: string
   ): Item {
     // Convertir status del backend al formato del frontend
     const statusMap: Record<'perdido' | 'encontrado', 'lost' | 'found'> = {
@@ -266,7 +311,9 @@ export const reportService = {
       title: report.title,
       description: report.description || '',
       category: category?.name || 'Sin categoría',
-      imageUrl: report.image_url,
+      imageUrl: apiBase 
+        ? buildImageUrl(report.image_url, apiBase, report.user_id)
+        : report.image_url,
       location: location?.name || 'Sin ubicación',
       date: date,
       status: statusMap[report.status] || 'found',

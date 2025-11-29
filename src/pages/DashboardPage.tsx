@@ -99,7 +99,7 @@ export default function DashboardPage() {
         setError(null);
         const userId = getUserId();
         const backendObjects = await objectService.getAllObjects(apiUrl, userId);
-        const mappedItems = backendObjects.map(mapBackendObjectToItem);
+        const mappedItems = backendObjects.map((obj) => mapBackendObjectToItem(obj, apiUrl, userId));
         setItems(mappedItems);
       } catch (err) {
         console.error('Error al cargar objetos:', err);
@@ -120,7 +120,7 @@ export default function DashboardPage() {
     try {
       const userId = getUserId();
       const backendObjects = await objectService.getAllObjects(apiUrl, userId);
-      const mappedItems = backendObjects.map(mapBackendObjectToItem);
+      const mappedItems = backendObjects.map((obj) => mapBackendObjectToItem(obj, apiUrl, userId));
       setItems(mappedItems);
     } catch (err) {
       console.error('Error al recargar objetos:', err);
