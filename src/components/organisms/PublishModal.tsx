@@ -106,9 +106,8 @@ export default function PublishModal({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-  <style>{`.publish-modal-scroll::-webkit-scrollbar{width:10px;height:10px}.publish-modal-scroll::-webkit-scrollbar-track{background:transparent}.publish-modal-scroll::-webkit-scrollbar-thumb{background-color:#0d9488;border-radius:9999px;border:3px solid transparent;background-clip:padding-box}.publish-modal-scroll::-webkit-scrollbar-corner{background:transparent}.publish-modal-scroll::-webkit-scrollbar-button{display:none}.publish-modal-scroll{scrollbar-width:thin;scrollbar-color:#0d9488 transparent}.publish-modal-scroll input[type=number]::-webkit-outer-spin-button,.publish-modal-scroll input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}.publish-modal-scroll input[type=number]{-moz-appearance:textfield}`}</style>
-  <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40" />
-  <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(95%,600px)] max-h-[90vh] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col">
+        <Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(95%,600px)] max-h-[90vh] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
             <Dialog.Title className="text-xl font-bold text-gray-900 dark:text-white">
@@ -125,7 +124,7 @@ export default function PublishModal({
           </div>
 
           {/* Form Content - Scrollable */}
-          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4 publish-modal-scroll">
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4 modal-scroll">
             {/* Type Selection */}
             <div className="flex gap-3">
               <button

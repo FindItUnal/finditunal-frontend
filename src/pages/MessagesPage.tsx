@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { PageTemplate } from '../components/templates';
 import { Card, Button } from '../components/atoms';
 import { MessageCircle, Send } from 'lucide-react';
-import { Chat, Message } from '../types';
+import { Chat } from '../types';
+import { useToast } from '../context/ToastContext';
 import { mockChats as sharedMockChats, mockMessages as sharedMockMessages } from '../data/chats';
 
 export default function MessagesPage() {
+  const toast = useToast();
   const [selectedChat, setSelectedChat] = useState<Chat | null>(sharedMockChats[0]);
   const [messageText, setMessageText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,7 +19,8 @@ export default function MessagesPage() {
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (messageText.trim()) {
-      alert(`Mensaje enviado: ${messageText}`);
+      // TODO: Implementar envío de mensaje al backend
+      toast.info('Funcionalidad de mensajes en desarrollo');
       setMessageText('');
     }
   };

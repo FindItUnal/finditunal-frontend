@@ -3,17 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 import { PageTemplate } from '../components/templates';
 import PublishModal from '../components/organisms/PublishModal';
+import ProfileEditor from '../components/organisms/ProfileEditor';
 import ConfirmDialog from '../components/molecules/ConfirmDialog';
+import ProfileInfo from '../components/molecules/ProfileInfo';
 import PublicationsList from '../components/organisms/PublicationsList';
+import { LoadingSpinner } from '../components/atoms';
 import { Item } from '../types';
-import ProfileInfo from '../components/ProfileInfo';
-import ProfileEditor from '../components/ProfileEditor';
 import { useProfile, useCategories, useLocations, useUserReports, useReportMutations } from '../hooks';
+import { useToast } from '../context/ToastContext';
 import useUserStore from '../store/useUserStore';
 import useGlobalStore from '../store/useGlobalStore';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const user = useUserStore((s) => s.user);
   const apiUrl = useGlobalStore((s) => s.apiUrl);
   const [publishOpen, setPublishOpen] = useState(false);
@@ -61,9 +64,10 @@ export default function ProfilePage() {
       await handlePublish(finalPayload, categories, locations);
       setPublishOpen(false);
       setEditingItem(null);
+      toast.success(editingItem ? 'Publicación actualizada exitosamente' : 'Publicación creada exitosamente');
     } catch (err) {
       console.error('Error al guardar publicación:', err);
-      alert(err instanceof Error ? err.message : 'Error al guardar la publicación');
+      toast.error(err instanceof Error ? err.message : 'Error al guardar la publicación');
     }
   };
 
@@ -75,9 +79,10 @@ export default function ProfilePage() {
       await deleteReport.mutateAsync(reportId);
       setToDeleteId(null);
       setConfirmOpen(false);
+      toast.success('Publicación eliminada exitosamente');
     } catch (err) {
       console.error('Error al eliminar publicación:', err);
-      alert(err instanceof Error ? err.message : 'Error al eliminar la publicación');
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar la publicación');
     }
   };
 
@@ -140,12 +145,7 @@ export default function ProfilePage() {
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Mis Publicaciones</h3>
                 <div>
                   {isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                      <div className="text-center">
-                        <div className="w-16 h-16 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="text-gray-600 dark:text-gray-400">Cargando publicaciones...</p>
-                      </div>
-                    </div>
+                    <LoadingSpinner message="Cargando publicaciones..." />
                   ) : error ? (
                     <div className="text-center py-12">
                       <p className="text-red-600 dark:text-red-400 mb-2">Error al cargar publicaciones</p>
@@ -166,9 +166,8 @@ export default function ProfilePage() {
                       }}
                       onGoDashboard={() => navigate('/dashboard')}
                       onMarkClaimed={(id) => {
-                        // Esta funcionalidad no está en el backend, se puede mantener como local
-                        // Nota: Esto no persistirá, solo es visual
-                        console.log(`Marcar como reclamado: ${id}`);
+                        // TODO: Implementar funcionalidad de marcar como reclamado en backend
+                        console.warn(`Marcar como reclamado: ${id} - funcionalidad pendiente`);
                       }}
                     />
                   )}

@@ -231,34 +231,56 @@ export const reportService = {
   },
 
   /**
-   * Obtiene todos los reportes del usuario y enriquece cada reporte con su imagen
+   * Obtiene todos los reportes del usuario y opcionalmente enriquece cada reporte con su imagen.
+   * 
+   * NOTA: Esta implementación hace una petición adicional por cada reporte para obtener imágenes.
+   * Esto es un problema de N+1 queries que debería resolverse en el backend:
+   * 
+   * TODO Backend: Modificar el endpoint GET /user/{id}/reports para incluir image_url
+   * directamente en la respuesta, evitando peticiones adicionales.
+   * 
+   * @param apiBase URL base de la API
+   * @param userId ID del usuario
+   * @param includeImages Si es true, obtiene las imágenes de cada reporte (default: true)
    */
-  async getUserReports(apiBase: string, userId: string | number): Promise<UserReport[]> {
+  async getUserReports(
+    apiBase: string, 
+    userId: string | number,
+    includeImages: boolean = true
+  ): Promise<UserReport[]> {
     const reports = await apiFetch<UserReport[]>(`/user/${userId}/reports`, {
       method: 'GET',
       baseUrl: apiBase,
     });
 
-    // Obtener la primera imagen de cada reporte para incluirla en image_url
-    const reportsWithImages = await Promise.all(
-      reports.map(async (report) => {
-        try {
-          const imagesData = await this.getReportImages(apiBase, userId, report.report_id);
-          if (imagesData.images && imagesData.images.length > 0) {
-            return {
-              ...report,
-              image_url: imagesData.images[0].filename, // Usar el primer filename
-            };
-          }
-        } catch (error) {
-          // Si hay error al obtener imágenes, simplemente no agregar image_url
-          console.warn(`No se pudieron obtener imágenes para reporte ${report.report_id}:`, error);
-        }
-        return report;
-      })
+    // Si no se requieren imágenes, retornar directamente
+    if (!includeImages) {
+      return reports;
+    }
+
+    // Obtener imágenes en paralelo usando Promise.allSettled para mejor manejo de errores
+    // Esto permite que si una petición falla, las demás continúen
+    const imagePromises = reports.map((report) =>
+      this.getReportImages(apiBase, userId, report.report_id)
+        .then((data) => ({ reportId: report.report_id, images: data.images }))
+        .catch(() => ({ reportId: report.report_id, images: [] }))
     );
 
-    return reportsWithImages;
+    const imageResults = await Promise.allSettled(imagePromises);
+
+    // Crear un mapa de imágenes por report_id para acceso O(1)
+    const imageMap = new Map<number, string>();
+    imageResults.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value.images.length > 0) {
+        imageMap.set(result.value.reportId, result.value.images[0].filename);
+      }
+    });
+
+    // Enriquecer reportes con imágenes
+    return reports.map((report) => ({
+      ...report,
+      image_url: imageMap.get(report.report_id) || report.image_url,
+    }));
   },
 
   /**

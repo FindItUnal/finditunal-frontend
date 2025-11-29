@@ -2,8 +2,24 @@ import { useEffect, useState } from 'react';
 import useUserStore from '../store/useUserStore';
 import useGlobalStore from '../store/useGlobalStore';
 import { profileService } from '../services';
+import { User } from '../types';
 
-export function useProfile() {
+export interface UseProfileReturn {
+  user: User | null;
+  isEditing: boolean;
+  setIsEditing: (editing: boolean) => void;
+  name: string;
+  setName: (name: string) => void;
+  email: string;
+  phone: string;
+  setPhone: (phone: string) => void;
+  saving: boolean;
+  error: string | null;
+  savePhone: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+}
+
+export function useProfile(): UseProfileReturn {
   const user = useUserStore((s) => s.user);
   const updateUser = useUserStore((s) => s.updateUser);
   const refreshUserFromStore = useUserStore((s) => s.refreshUser);
@@ -12,20 +28,20 @@ export function useProfile() {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(user?.name ?? '');
   const [email, setEmail] = useState(user?.email ?? '');
-  const [phone, setPhone] = useState((user as any)?.phone_number ?? '');
+  const [phone, setPhone] = useState(user?.phone_number ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setName(user?.name ?? '');
     setEmail(user?.email ?? '');
-    setPhone((user as any)?.phone_number ?? '');
+    setPhone(user?.phone_number ?? '');
   }, [user]);
 
   async function refreshProfile() {
     try {
       await refreshUserFromStore(apiUrl);
-    } catch (err) {
+    } catch {
       // ignore
     }
   }
@@ -35,11 +51,12 @@ export function useProfile() {
     setSaving(true);
     setError(null);
     try {
-      await profileService.updatePhone(apiUrl, phone);
-      updateUser({ phone_number: phone } as any);
+      await profileService.updateProfile(apiUrl, { phone_number: phone });
+      updateUser({ phone_number: phone });
       setIsEditing(false);
-    } catch (err: any) {
-      setError(err?.message || 'Error saving');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Error saving';
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }

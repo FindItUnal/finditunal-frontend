@@ -11,6 +11,15 @@ import { Card, Button } from '../components/atoms';
 import { Metrics } from '../types';
 import useUserStore from '../store/useUserStore';
 
+/**
+ * DATOS MOCK - PENDIENTE INTEGRACIÓN CON BACKEND
+ * 
+ * TODO: Reemplazar con integración real cuando los endpoints de admin estén disponibles:
+ * - Implementar adminService.getMetrics() para obtener estadísticas reales
+ * - Implementar adminService.getRecentActivity() para actividad reciente
+ * 
+ * @deprecated Usar adminService cuando esté disponible
+ */
 const mockMetrics: Metrics = {
   totalUsers: 245,
   totalItems: 87,
@@ -18,7 +27,17 @@ const mockMetrics: Metrics = {
   itemsFound: 34,
 };
 
-const recentActivity = [
+interface ActivityItem {
+  id: string;
+  type: 'user' | 'item' | 'report';
+  message: string;
+  time: string;
+}
+
+/**
+ * @deprecated Usar adminService.getRecentActivity() cuando esté disponible
+ */
+const recentActivity: ActivityItem[] = [
   {
     id: '1',
     type: 'user',
@@ -34,7 +53,7 @@ const recentActivity = [
   {
     id: '3',
     type: 'report',
-    message: 'Nueva denunciar recibido: Contenido inapropiado',
+    message: 'Nueva denuncia recibida: Contenido inapropiado',
     time: 'Hace 30 min',
   },
   {

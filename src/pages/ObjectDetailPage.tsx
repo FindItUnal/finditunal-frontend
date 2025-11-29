@@ -1,10 +1,10 @@
-import { MapPin, Calendar, User, MessageCircle, Trash2 } from 'lucide-react';
+import { MapPin, Calendar, User, MessageCircle, Trash2, Flag } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageTemplate } from '../components/templates';
 import ReportDialog from '../components/molecules/ReportDialog';
-import BackButton from '../components/atoms/BackButton';
-import { Button, Badge } from '../components/atoms';
+import { Button, Badge, BackButton, LoadingSpinner } from '../components/atoms';
+import { useToast } from '../context/ToastContext';
 import useUserStore from '../store/useUserStore';
 import ConfirmDialog from '../components/molecules/ConfirmDialog';
 import { useObjectById } from '../hooks';
@@ -13,6 +13,7 @@ import { EmptyState } from '../components/organisms';
 
 export default function ObjectDetailPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const { id } = useParams();
   const [reportOpen, setReportOpen] = useState(false);
   const user = useUserStore((s) => s.user);
@@ -43,12 +44,7 @@ export default function ObjectDetailPage() {
     return (
       <PageTemplate>
         <BackButton to="/dashboard">Volver a explorar</BackButton>
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">Cargando objeto...</p>
-          </div>
-        </div>
+        <LoadingSpinner message="Cargando objeto..." />
       </PageTemplate>
     );
   }
@@ -157,12 +153,13 @@ export default function ObjectDetailPage() {
               </Button>
               {user?.role === 'admin' ? (
                 <>
-                  <button
+                  <Button
+                    variant="outline"
+                    icon={Trash2}
                     onClick={() => setConfirmOpen(true)}
-                    className="border rounded-lg px-4 py-3 text-sm border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 transition transform duration-150 ease-in-out hover:shadow-lg hover:border-gray-400 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
                   >
-                    <Trash2 className="w-4 h-4 text-red-600" /> Eliminar
-                  </button>
+                    Eliminar
+                  </Button>
                   <ConfirmDialog
                     open={confirmOpen}
                     onOpenChange={setConfirmOpen}
@@ -171,19 +168,21 @@ export default function ObjectDetailPage() {
                     confirmLabel="Eliminar"
                     cancelLabel="Cancelar"
                     onConfirm={() => {
-                      alert(`Eliminar objeto ${object.id}`);
+                      // TODO: Implementar eliminación desde backend
+                      console.warn(`Eliminar objeto ${object.id} - funcionalidad pendiente`);
                       setConfirmOpen(false);
                       navigate('/dashboard');
                     }}
                   />
                 </>
               ) : (
-                <button
+                <Button
+                  variant="outline"
+                  icon={Flag}
                   onClick={() => setReportOpen(true)}
-                  className="border rounded-lg px-4 py-3 text-sm border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 transition transform duration-150 ease-in-out hover:shadow-lg hover:border-gray-400 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   Denunciar
-                </button>
+                </Button>
               )}
           </div>
         </div>
@@ -192,7 +191,11 @@ export default function ObjectDetailPage() {
       <ReportDialog
         open={reportOpen}
         onOpenChange={setReportOpen}
-        onReport={(payload) => alert(`Reporte enviado: ${JSON.stringify(payload)}`)}
+        onReport={() => {
+          // TODO: Implementar envío de reporte al backend
+          toast.success('Reporte enviado correctamente');
+          setReportOpen(false);
+        }}
       />
     </PageTemplate>
   );

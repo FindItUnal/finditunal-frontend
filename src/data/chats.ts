@@ -1,5 +1,22 @@
+/**
+ * DATOS MOCK - PENDIENTE INTEGRACIÓN CON BACKEND
+ * 
+ * TODO: Reemplazar con integración real cuando el backend de mensajería esté disponible:
+ * - Implementar chatService.getChats() para obtener conversaciones del usuario
+ * - Implementar chatService.getMessages(chatId) para obtener mensajes de una conversación
+ * - Implementar chatService.sendMessage(chatId, content) para enviar mensajes
+ * - Implementar WebSocket para mensajes en tiempo real
+ * 
+ * @see MessagesPage.tsx - Página que consume estos datos
+ * @see HeaderResponsive.tsx / Layout.tsx - Usan mockChats para el contador de no leídos
+ */
+
 import { Chat, Message } from '../types';
 
+/**
+ * Conversaciones mock para desarrollo
+ * @deprecated Usar chatService cuando esté disponible
+ */
 export const mockChats: Chat[] = [
   {
     id: '1',
@@ -27,6 +44,10 @@ export const mockChats: Chat[] = [
   },
 ];
 
+/**
+ * Mensajes mock para desarrollo
+ * @deprecated Usar chatService cuando esté disponible
+ */
 export const mockMessages: Message[] = [
   {
     id: '1',

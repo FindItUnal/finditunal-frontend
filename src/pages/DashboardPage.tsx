@@ -5,11 +5,14 @@ import { SearchFilterBar, ItemGrid, EmptyState } from '../components/organisms';
 import PublishModal from '../components/organisms/PublishModal';
 import { useSearchFilter, useModal, useCategories, useLocations, useObjects, useReportMutations } from '../hooks';
 import ReportDialog from '../components/molecules/ReportDialog';
+import { LoadingSpinner } from '../components/atoms';
+import { useToast } from '../context/ToastContext';
 import useUserStore from '../store/useUserStore';
 
 export default function DashboardPage() {
   const user = useUserStore((s) => s.user);
   const navigate = useNavigate();
+  const toast = useToast();
   const { searchTerm, setSearchTerm, selectedCategory, setSelectedCategory } = useSearchFilter('Todas');
   const publishModal = useModal();
   const [reportOpen, setReportOpen] = useState(false);
@@ -56,9 +59,10 @@ export default function DashboardPage() {
     try {
       await handlePublish(data, backendCategories, backendLocations);
       publishModal.close();
+      toast.success('Objeto publicado exitosamente');
     } catch (err) {
       console.error('Error al publicar objeto:', err);
-      alert(err instanceof Error ? err.message : 'Error al publicar el objeto');
+      toast.error(err instanceof Error ? err.message : 'Error al publicar el objeto');
     }
   };
 
@@ -80,12 +84,7 @@ export default function DashboardPage() {
         />
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="w-16 h-16 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-gray-600 dark:text-gray-400">Cargando objetos...</p>
-            </div>
-          </div>
+          <LoadingSpinner message="Cargando objetos..." />
         ) : objectsError ? (
           <EmptyState
             title="Error al cargar objetos"
@@ -94,18 +93,15 @@ export default function DashboardPage() {
         ) : filteredItems.length > 0 ? (
           <ItemGrid
             items={filteredItems}
-            onItemOpen={(id) => {
-              navigate(`/object/${id}`);
-              console.log(`Abrir objeto ${id}`);
-            }}
+            onItemOpen={(id) => navigate(`/object/${id}`)}
             onItemMessage={() => navigate('/messages')}
             onItemReport={(id) => {
               setReportItemId(id);
               setReportOpen(true);
             }}
             onItemDelete={(id) => {
-              // For now just alert; in a real app you'd call backend to delete and refresh list
-              console.log(`Eliminar publicación ${id}`);
+              // TODO: Implementar eliminación desde backend
+              console.warn(`Eliminar publicación ${id} - funcionalidad pendiente`);
             }}
           />
         ) : (
@@ -135,8 +131,9 @@ export default function DashboardPage() {
           setReportOpen(open);
           if (!open) setReportItemId(null);
         }}
-        onReport={(payload) => {
-          alert(`Reporte enviado para item ${reportItemId}: ${JSON.stringify(payload)}`);
+        onReport={() => {
+          // TODO: Implementar envío de reporte al backend
+          toast.success('Reporte enviado correctamente');
           setReportOpen(false);
           setReportItemId(null);
         }}

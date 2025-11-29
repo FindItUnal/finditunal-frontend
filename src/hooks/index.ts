@@ -12,3 +12,4 @@ export { useReportMutations } from './useReportMutations';
 export type { UseSearchFilterReturn } from './useSearchFilter';
 export type { UseModalReturn } from './useModal';
 export type { UseAuthReturn } from './useAuth';
+export type { UseProfileReturn } from './useProfile';
