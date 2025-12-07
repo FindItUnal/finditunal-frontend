@@ -31,8 +31,8 @@ export default function ItemCard({ item, onOpen, onMessage, onReport, onDelete }
     onOpen(item.id);
   };
 
-  const statusVariant = item.status === 'found' ? 'success' : item.status === 'lost' ? 'warning' : 'info';
-  const statusText = item.status === 'found' ? 'Encontrado' : item.status === 'lost' ? 'Perdido' : 'entregado';
+  const statusVariant = item.status === 'claimed' ? 'success' : item.status === 'found' ? 'success' : 'warning';
+  const statusText = item.status === 'claimed' ? 'Entregado' : item.status === 'found' ? 'Encontrado' : 'Perdido';
 
   return (
     <Card

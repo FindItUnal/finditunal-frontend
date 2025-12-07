@@ -14,6 +14,8 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const { searchTerm, setSearchTerm, selectedCategory, setSelectedCategory } = useSearchFilter('Todas');
+  const [selectedStatus, setSelectedStatus] = useState<string>('Todos');
+  const [selectedLocation, setSelectedLocation] = useState<string>('Todas');
   const publishModal = useModal();
   const [reportOpen, setReportOpen] = useState(false);
   const [reportItemId, setReportItemId] = useState<string | null>(null);
@@ -30,7 +32,12 @@ export default function DashboardPage() {
     return ['Todas', ...backendCategories.map((cat) => cat.name)];
   }, [backendCategories]);
 
-  // Filtrar items - usar useMemo para recalcular cuando cambien items, searchTerm o selectedCategory
+  // Preparar ubicaciones para el filtro (agregar "Todas" al inicio)
+  const locations = useMemo(() => {
+    return ['Todas', ...backendLocations.map((loc) => loc.name)];
+  }, [backendLocations]);
+
+  // Filtrar items - usar useMemo para recalcular cuando cambien items, searchTerm, selectedCategory, selectedStatus o selectedLocation
   const filteredItems = useMemo(() => {
     if (!items || items.length === 0) return [];
     // Aplicar filtro directamente aquí para asegurar que se recalcule correctamente
@@ -42,9 +49,16 @@ export default function DashboardPage() {
       const matchesCategory =
         selectedCategory === 'Todas' ||
         item.category.trim().toLowerCase() === selectedCategory.trim().toLowerCase();
-      return matchesSearch && matchesCategory;
+      const matchesStatus =
+        selectedStatus === 'Todos' ||
+        (selectedStatus === 'Perdido' && item.status === 'lost') ||
+        (selectedStatus === 'Encontrado' && item.status === 'found');
+      const matchesLocation =
+        selectedLocation === 'Todas' ||
+        item.location.trim().toLowerCase() === selectedLocation.trim().toLowerCase();
+      return matchesSearch && matchesCategory && matchesStatus && matchesLocation;
     });
-  }, [items, searchTerm, selectedCategory]);
+  }, [items, searchTerm, selectedCategory, selectedStatus, selectedLocation]);
 
   const handlePublishSubmit = async (data: {
     title: string;
@@ -81,6 +95,11 @@ export default function DashboardPage() {
           categories={categories}
           selectedCategory={selectedCategory}
           onCategoryChange={setSelectedCategory}
+          selectedStatus={selectedStatus}
+          onStatusChange={setSelectedStatus}
+          locations={locations}
+          selectedLocation={selectedLocation}
+          onLocationChange={setSelectedLocation}
           onPublish={publishModal.open}
         />
 

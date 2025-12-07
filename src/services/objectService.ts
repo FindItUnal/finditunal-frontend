@@ -11,7 +11,7 @@ export interface BackendObject {
   description?: string;
   category: string;
   location: string;
-  status: 'perdido' | 'encontrado';
+  status: 'perdido' | 'encontrado' | 'entregado';
   contact_method: string;
   date_lost_or_found: string | Date;
   image_url?: string;
@@ -30,9 +30,10 @@ export function mapBackendObjectToItem(
   userId?: string | number
 ): Item {
   // Convertir status del backend al formato del frontend
-  const statusMap: Record<'perdido' | 'encontrado', 'lost' | 'found'> = {
+  const statusMap: Record<'perdido' | 'encontrado' | 'entregado', 'lost' | 'found' | 'claimed'> = {
     perdido: 'lost',
     encontrado: 'found',
+    entregado: 'claimed',
   };
 
   // Formatear fecha
@@ -52,7 +53,7 @@ export function mapBackendObjectToItem(
       : backendObject.image_url,
     location: backendObject.location,
     date: date,
-    status: statusMap[backendObject.status] || 'found',
+    status: statusMap[backendObject.status] || 'lost',
     userId: backendObject.user_id, 
     userName: '', // No viene del backend
     createdAt: new Date().toISOString(), // No viene del backend, usar fecha actual
@@ -69,7 +70,7 @@ export interface SearchObjectsParams {
   startDate?: string;
   endDate?: string;
   keyword?: string;
-  status?: 'perdido' | 'encontrado';
+  status?: 'perdido' | 'encontrado' | 'entregado';
 }
 
 /**
