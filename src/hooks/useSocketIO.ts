@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { socketService, MessageData } from '../services/socketService';
 import useGlobalStore from '../store/useGlobalStore';
 import useUserStore from '../store/useUserStore';
@@ -12,58 +11,63 @@ export function useSocketIO() {
   const apiUrl = useGlobalStore((s) => s.apiUrl);
   const user = useUserStore((s) => s.user);
   const userId = user ? getUserId(user) : null;
-  const queryClient = useQueryClient();
   const hasConnected = useRef(false);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     // Solo conectar si hay usuario autenticado y no se ha conectado antes
     if (!userId || hasConnected.current) return;
 
     console.log('🔌 Conectando Socket.IO...');
-    socketService.connect(apiUrl);
+    const socket = socketService.connect(apiUrl);
     hasConnected.current = true;
+    setIsConnected(true);
 
-    // Listener para nuevos mensajes
-    socketService.onNewMessage((message: MessageData) => {
-      console.log('📨 Nuevo mensaje recibido:', message);
-      
-      // Invalidar mensajes de esa conversación
-      queryClient.invalidateQueries({ 
-        queryKey: ['messages', apiUrl, userId, message.conversation_id] 
-      });
-      
-      // Invalidar lista de conversaciones para actualizar último mensaje
-      queryClient.invalidateQueries({ 
-        queryKey: ['conversations', apiUrl, userId] 
-      });
+    socket.on('connect', () => {
+      console.log('✅ Conectado a Socket.IO');
+      setIsConnected(true);
     });
 
-    // Listener para notificaciones
-    socketService.onNewNotification((notification) => {
-      console.log('🔔 Nueva notificación:', notification);
-      
-      // Invalidar conversaciones cuando llega un mensaje nuevo
-      if (notification.type === 'chat_message') {
-        queryClient.invalidateQueries({ 
-          queryKey: ['conversations', apiUrl, userId] 
-        });
-      }
+    socket.on('disconnect', () => {
+      console.log('❌ Desconectado de Socket.IO');
+      setIsConnected(false);
     });
 
     // Cleanup al desmontar
     return () => {
       console.log('🔌 Desconectando Socket.IO...');
-      socketService.offNewMessage();
-      socketService.offNewNotification();
       socketService.disconnect();
       hasConnected.current = false;
+      setIsConnected(false);
     };
-  }, [userId, apiUrl, queryClient]);
+  }, [userId, apiUrl]);
+
+  const joinConversation = useCallback((conversationId: number) => {
+    socketService.joinConversation(conversationId);
+  }, []);
+
+  const leaveConversation = useCallback((conversationId: number) => {
+    socketService.leaveConversation(conversationId);
+  }, []);
+
+  const markAsRead = useCallback((conversationId: number) => {
+    socketService.markAsRead(conversationId);
+  }, []);
+
+  const onNewMessage = useCallback((callback: (message: MessageData) => void) => {
+    socketService.onNewMessage(callback);
+  }, []);
+
+  const offNewMessage = useCallback(() => {
+    socketService.offNewMessage();
+  }, []);
 
   return {
-    isConnected: socketService.isConnected(),
-    joinConversation: socketService.joinConversation.bind(socketService),
-    leaveConversation: socketService.leaveConversation.bind(socketService),
-    markAsRead: socketService.markAsRead.bind(socketService),
+    isConnected,
+    joinConversation,
+    leaveConversation,
+    markAsRead,
+    onNewMessage,
+    offNewMessage,
   };
 }
