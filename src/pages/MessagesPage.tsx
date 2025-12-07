@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { PageTemplate } from '../components/templates';
-import { Card, Button } from '../components/atoms';
+import { Card } from '../components/atoms';
 import { MessageCircle, Send, ArrowLeft } from 'lucide-react';
 import { Chat } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -59,7 +59,8 @@ export default function MessagesPage() {
       const convId = parseInt(selectedChat.id, 10);
       markAsRead.mutate(convId);
     }
-  }, [selectedChat?.id, markAsRead]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChat?.id]); // Solo depender del ID, no de markAsRead
 
   const filteredChats = conversations.filter((chat) =>
     chat.participantName.toLowerCase().includes(searchTerm.toLowerCase())
