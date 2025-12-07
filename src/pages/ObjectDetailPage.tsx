@@ -1,4 +1,4 @@
-import { MapPin, Calendar, User, MessageCircle, Trash2, Flag } from 'lucide-react';
+import { MapPin, Calendar, User, MessageCircle, Trash2, Flag, Edit2 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageTemplate } from '../components/templates';
@@ -8,6 +8,8 @@ import { useToast } from '../context/ToastContext';
 import useUserStore from '../store/useUserStore';
 import ConfirmDialog from '../components/molecules/ConfirmDialog';
 import { useObjectById } from '../hooks';
+import PublishModal from '../components/organisms/PublishModal';
+import { useCategories, useLocations, useReportMutations } from '../hooks';
 import { formatDate } from '../utils/dateUtils';
 import { EmptyState } from '../components/organisms';
 
@@ -18,9 +20,15 @@ export default function ObjectDetailPage() {
   const [reportOpen, setReportOpen] = useState(false);
   const user = useUserStore((s) => s.user);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const { data: categories = [] } = useCategories();
+  const { data: locations = [] } = useLocations();
+  const { handlePublish, deleteReport, isPending: isPublishing } = useReportMutations();
 
   // Usar hook de TanStack Query para cargar el objeto
   const { data: object, isLoading, error } = useObjectById(id);
+
+  console.log('Cargando objeto con ID:', id, object);
 
   const statusConfig = {
     found: {
@@ -60,6 +68,43 @@ export default function ObjectDetailPage() {
       </PageTemplate>
     );
   }
+
+  const isOwner = !!(user && object && user.id === object.userId);
+
+  const handlePublishSubmit = async (payload: {
+    title: string;
+    description: string;
+    category: string;
+    location: string;
+    type: 'found' | 'lost';
+    found_date: string;
+    contact_method: string;
+    image?: File;
+    reportId?: string;
+  }) => {
+    try {
+      await handlePublish(payload, categories, locations);
+      setPublishOpen(false);
+      toast.success(payload.reportId ? 'Publicación actualizada exitosamente' : 'Publicación creada exitosamente');
+    } catch (err) {
+      console.error('Error al guardar publicación desde detalle:', err);
+      toast.error(err instanceof Error ? err.message : 'Error al guardar la publicación');
+    }
+  };
+
+  const handleOwnerDelete = async () => {
+    if (!object) return;
+    try {
+      const reportId = parseInt(object.id, 10);
+      await deleteReport.mutateAsync(reportId);
+      setConfirmOpen(false);
+      toast.success('Publicación eliminada exitosamente');
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Error al eliminar desde detalle:', err);
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar la publicación');
+    }
+  };
 
   return (
     <PageTemplate>
@@ -143,50 +188,97 @@ export default function ObjectDetailPage() {
           </div>
 
           <div className="flex gap-3">
-              <Button
-                variant="primary"
-                icon={MessageCircle}
-                onClick={() => navigate('/messages')}
-                className="flex-1"
-              >
-                Contactar
-              </Button>
-              {user?.role === 'admin' ? (
-                <>
-                  <Button
-                    variant="outline"
-                    icon={Trash2}
-                    onClick={() => setConfirmOpen(true)}
-                  >
-                    Eliminar
-                  </Button>
-                  <ConfirmDialog
-                    open={confirmOpen}
-                    onOpenChange={setConfirmOpen}
-                    title="Eliminar publicación"
-                    description="¿Deseas eliminar esta publicación? Esta acción no se puede deshacer."
-                    confirmLabel="Eliminar"
-                    cancelLabel="Cancelar"
-                    onConfirm={() => {
-                      // TODO: Implementar eliminación desde backend
-                      console.warn(`Eliminar objeto ${object.id} - funcionalidad pendiente`);
-                      setConfirmOpen(false);
-                      navigate('/dashboard');
-                    }}
-                  />
-                </>
-              ) : (
+            {isOwner ? (
+              <>
+                <Button
+                  variant="primary"
+                  icon={Edit2}
+                  onClick={() => setPublishOpen(true)}
+                  className="flex-1"
+                >
+                  Editar
+                </Button>
                 <Button
                   variant="outline"
-                  icon={Flag}
-                  onClick={() => setReportOpen(true)}
+                  icon={Trash2}
+                  onClick={() => setConfirmOpen(true)}
                 >
-                  Denunciar
+                  Eliminar
                 </Button>
-              )}
+                <ConfirmDialog
+                  open={confirmOpen}
+                  onOpenChange={setConfirmOpen}
+                  title="Eliminar publicación"
+                  description="¿Deseas eliminar esta publicación? Esta acción no se puede deshacer."
+                  confirmLabel="Eliminar"
+                  cancelLabel="Cancelar"
+                  onConfirm={handleOwnerDelete}
+                />
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="primary"
+                  icon={MessageCircle}
+                  onClick={() => navigate('/messages')}
+                  className="flex-1"
+                >
+                  Contactar
+                </Button>
+                {user?.role === 'admin' ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      icon={Trash2}
+                      onClick={() => setConfirmOpen(true)}
+                    >
+                      Eliminar
+                    </Button>
+                    <ConfirmDialog
+                      open={confirmOpen}
+                      onOpenChange={setConfirmOpen}
+                      title="Eliminar publicación"
+                      description="¿Deseas eliminar esta publicación? Esta acción no se puede deshacer."
+                      confirmLabel="Eliminar"
+                      cancelLabel="Cancelar"
+                      onConfirm={handleOwnerDelete}
+                    />
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    icon={Flag}
+                    onClick={() => setReportOpen(true)}
+                  >
+                    Denunciar
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
+
+      <PublishModal
+        open={publishOpen}
+        onOpenChange={(open) => setPublishOpen(open)}
+        categories={categories}
+        locations={locations}
+        initialData={object ? {
+          id: object.id,
+          title: object.title,
+          description: object.description,
+          category: object.category,
+          location: object.location,
+          type: object.status === 'found' ? 'found' : 'lost',
+          found_date: object.date,
+          imageUrl: object.imageUrl,
+          contact_method: object.contact_method || '',
+        } : undefined}
+        onPublish={handlePublishSubmit}
+        submitLabel="Guardar cambios"
+        isLoading={isPublishing}
+      />
 
       <ReportDialog
         open={reportOpen}

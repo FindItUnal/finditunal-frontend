@@ -1,6 +1,5 @@
 import { Card, Badge, IconButton } from '../atoms';
 import { ItemInfo, UserInfo } from '../molecules';
-import { MessageCircle } from 'lucide-react';
 import { Item } from '../../types';
 import AdminOrReport from '../molecules/AdminOrReport';
 
@@ -39,8 +38,8 @@ export default function ItemCard({ item, onOpen, onMessage, onReport, onDelete }
     <Card
       role="button"
       tabIndex={0}
-  onClick={handleClick}
-  onKeyDown={handleKey}
+      onClick={handleClick}
+      onKeyDown={handleKey}
       hoverable
       padding="none"
     >
@@ -72,16 +71,6 @@ export default function ItemCard({ item, onOpen, onMessage, onReport, onDelete }
           <UserInfo name={item.userName} avatar={item.userAvatar} size="sm" />
 
             <div className="flex items-center space-x-2">
-              <IconButton
-                icon={MessageCircle}
-                variant="primary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMessage(item.id);
-                }}
-                ariaLabel={`Enviar mensaje a ${item.userName}`}
-              />
-
               {/* If current user is admin, show delete (with confirm). Otherwise show report */}
               <AdminOrReport
                 id={item.id}
