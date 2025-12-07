@@ -55,6 +55,14 @@ export default function AppRoutes() {
             </PrivateRoute>
           }
         />
+        <Route
+          path="/messages/:conversationId"
+          element={
+            <PrivateRoute>
+              <MessagesPage />
+            </PrivateRoute>
+          }
+        />
         
         {/* Rutas de admin requieren role='admin' */}
         <Route
