@@ -15,3 +15,11 @@ export { reportService } from './reportService';
 export type { CreateReportData, UpdateReportData, UserReport } from './reportService';
 export { complaintService } from './complaintService';
 export type { CreateComplaintPayload, ComplaintResponse } from './complaintService';
+export { chatService } from './chatService';
+export type {
+  ConversationExistsResponse,
+  ConversationRecord,
+  ConversationSummary,
+  MessageRecord,
+  SendMessagePayload,
+} from './chatService';

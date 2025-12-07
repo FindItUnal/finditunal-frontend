@@ -28,6 +28,12 @@ export interface Item {
   contact_method?: string;
 }
 
+// ============ CHAT TYPES (Backend Integration) ============
+
+/**
+ * Mensaje individual en una conversación
+ * Compatible con MessageRecord del backend
+ */
 export interface Message {
   id: string;
   senderId: string;
@@ -37,6 +43,10 @@ export interface Message {
   read: boolean;
 }
 
+/**
+ * Conversación con resumen de información
+ * Compatible con ConversationSummary del backend
+ */
 export interface Chat {
   id: string;
   participantId: string;
@@ -45,6 +55,8 @@ export interface Chat {
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
+  reportId?: number;
+  reportTitle?: string;
 }
 
 export interface Report {
