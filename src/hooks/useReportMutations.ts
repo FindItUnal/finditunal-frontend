@@ -56,6 +56,20 @@ export function useReportMutations() {
     },
   });
 
+  // Mutation para marcar reporte como entregado
+  const markAsDelivered = useMutation({
+    mutationFn: async (reportId: number) => {
+      if (!userId) throw new Error('Usuario no autenticado');
+      return reportService.markAsDelivered(apiUrl, userId, reportId);
+    },
+    onSuccess: () => {
+      // Invalidar queries relacionadas para refrescar datos
+      queryClient.invalidateQueries({ queryKey: ['objects', apiUrl, userId] });
+      queryClient.invalidateQueries({ queryKey: ['userReports', apiUrl, userId] });
+      queryClient.invalidateQueries({ queryKey: ['object', apiUrl, userId] });
+    },
+  });
+
   /**
    * Helper para crear/actualizar reporte desde el formato del formulario
    */
@@ -108,8 +122,9 @@ export function useReportMutations() {
     createReport,
     updateReport,
     deleteReport,
+    markAsDelivered,
     handlePublish,
-    isPending: createReport.isPending || updateReport.isPending || deleteReport.isPending,
+    isPending: createReport.isPending || updateReport.isPending || deleteReport.isPending || markAsDelivered.isPending,
   };
 }
 

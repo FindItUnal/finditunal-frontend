@@ -32,7 +32,7 @@ export default function ProfilePage() {
   const { data: categories = [] } = useCategories();
   const { data: locations = [] } = useLocations();
   const { data: userItems = [], isLoading, error } = useUserReports();
-  const { handlePublish, deleteReport, isPending: isPublishing } = useReportMutations();
+  const { handlePublish, deleteReport, markAsDelivered, isPending: isPublishing } = useReportMutations();
 
   // Cargar perfil del usuario desde el backend al montar
   useEffect(() => {
@@ -83,6 +83,23 @@ export default function ProfilePage() {
     } catch (err) {
       console.error('Error al eliminar publicación:', err);
       toast.error(err instanceof Error ? err.message : 'Error al eliminar la publicación');
+    }
+  };
+
+  const handleMarkAsDelivered = async (id: string) => {
+    if (!user) return;
+
+    try {
+      const reportId = parseInt(id, 10);
+      if (isNaN(reportId)) {
+        toast.error('ID de publicación inválido');
+        return;
+      }
+      await markAsDelivered.mutateAsync(reportId);
+      toast.success('Objeto marcado como entregado exitosamente');
+    } catch (err) {
+      console.error('Error al marcar como entregado:', err);
+      toast.error(err instanceof Error ? err.message : 'Error al marcar como entregado');
     }
   };
 
@@ -165,10 +182,7 @@ export default function ProfilePage() {
                         setConfirmOpen(true);
                       }}
                       onGoDashboard={() => navigate('/dashboard')}
-                      onMarkClaimed={(id) => {
-                        // TODO: Implementar funcionalidad de marcar como reclamado en backend
-                        console.warn(`Marcar como reclamado: ${id} - funcionalidad pendiente`);
-                      }}
+                      onMarkClaimed={handleMarkAsDelivered}
                     />
                   )}
                 </div>

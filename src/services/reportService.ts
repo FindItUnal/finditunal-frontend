@@ -26,7 +26,7 @@ export interface UpdateReportData {
   location_id?: number;
   title?: string;
   description?: string;
-  status?: 'perdido' | 'encontrado';
+  status?: 'perdido' | 'encontrado' | 'entregado';
   date_lost_or_found?: string; // YYYY-MM-DD
   contact_method?: string;
   image?: File; // Se envía al backend como 'images' (array) aunque internamente solo se maneje una imagen
@@ -42,7 +42,7 @@ export interface UserReport {
   location_id: number;
   title: string;
   description?: string;
-  status: 'perdido' | 'encontrado';
+  status: 'perdido' | 'encontrado' | 'entregado';
   date_lost_or_found: string | Date;
   contact_method: string;
   created_at: string | Date;
@@ -298,6 +298,19 @@ export const reportService = {
   },
 
   /**
+   * Marca un reporte como entregado (cambia el status a 'entregado')
+   */
+  async markAsDelivered(
+    apiBase: string,
+    userId: string | number,
+    reportId: number
+  ): Promise<{ message: string }> {
+    return this.updateReport(apiBase, userId, reportId, {
+      status: 'entregado',
+    });
+  },
+
+  /**
    * Mapea un reporte del backend al formato Item del frontend
    * @param report Reporte del backend
    * @param categories Lista de categorías para mapear IDs a nombres
@@ -311,9 +324,10 @@ export const reportService = {
     apiBase?: string
   ): Item {
     // Convertir status del backend al formato del frontend
-    const statusMap: Record<'perdido' | 'encontrado', 'lost' | 'found'> = {
+    const statusMap: Record<'perdido' | 'encontrado' | 'entregado', 'lost' | 'found' | 'claimed'> = {
       perdido: 'lost',
       encontrado: 'found',
+      entregado: 'claimed',
     };
 
     // Buscar nombres de categoría y ubicación
@@ -338,7 +352,7 @@ export const reportService = {
         : report.image_url,
       location: location?.name || 'Sin ubicación',
       date: date,
-      status: statusMap[report.status] || 'found',
+      status: statusMap[report.status] || 'lost',
       userId: report.user_id.toString(),
       userName: '', // No viene del backend
       createdAt: report.created_at instanceof Date

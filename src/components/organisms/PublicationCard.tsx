@@ -26,8 +26,14 @@ export default function PublicationCard({ item, onEdit, onDelete, onMarkClaimed 
         <div className="flex-1 min-w-0 mt-3 md:mt-0 md:ml-2">
           <div className="flex items-start justify-between mb-2">
             <h4 className="text-lg font-bold text-gray-900 dark:text-white">{item.title}</h4>
-            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${item.status === 'claimed' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300'}`}>
-              {item.status === 'claimed' ? 'Entregado' : 'Activo'}
+            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+              item.status === 'claimed' 
+                ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' 
+                : item.status === 'found'
+                ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300'
+                : 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300'
+            }`}>
+              {item.status === 'claimed' ? 'Entregado' : item.status === 'found' ? 'Encontrado' : 'Perdido'}
             </span>
           </div>
 
@@ -48,7 +54,7 @@ export default function PublicationCard({ item, onEdit, onDelete, onMarkClaimed 
 
       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
         <div className="flex items-center">
-          {item.status === 'found' && (
+          {item.status !== 'claimed' && (
             <Button
               variant="primary"
               size="sm"
