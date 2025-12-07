@@ -54,21 +54,23 @@ export default function ItemCard({ item, onOpen, onMessage, onReport, onDelete }
         )}
       </div>
 
-      <div className="p-5">
-        <div className="flex items-start justify-between mb-3">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{item.title}</h3>
-          <Badge variant={statusVariant}>{statusText}</Badge>
+      <div className="p-5 flex-1 flex flex-col">
+        <div className="flex-1">
+          <div className="flex items-start justify-between mb-3">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{item.title}</h3>
+            <Badge variant={statusVariant}>{statusText}</Badge>
+          </div>
+
+          <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
+            {item.description}
+          </p>
+
+          <div className="mb-4">
+            <ItemInfo location={item.location} date={item.date} />
+          </div>
         </div>
 
-        <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
-          {item.description}
-        </p>
-
-        <div className="mb-4">
-          <ItemInfo location={item.location} date={item.date} />
-        </div>
-
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700 mt-auto">
           <UserInfo name={item.userName} avatar={item.userAvatar} size="sm" />
 
             <div className="flex items-center space-x-2">
