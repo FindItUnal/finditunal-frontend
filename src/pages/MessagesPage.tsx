@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { PageTemplate } from '../components/templates';
 import { Card } from '../components/atoms';
 import { MessageCircle, Send, ArrowLeft } from 'lucide-react';
@@ -9,10 +9,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { LoadingSpinner } from '../components/atoms';
 import { EmptyState } from '../components/organisms';
 import useUserStore from '../store/useUserStore';
-import { useSocketIO } from '../hooks/useSocketIO';
+import { useSocketIO, MessageData } from '../hooks/useSocketIO';
 import { chatService } from '../services/chatService';
 import useGlobalStore from '../store/useGlobalStore';
 import { getUserId } from '../utils/userUtils';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function MessagesPage() {
   const toast = useToast();
@@ -21,14 +22,28 @@ export default function MessagesPage() {
   const user = useUserStore((s) => s.user);
   const apiUrl = useGlobalStore((s) => s.apiUrl);
   const userId = user ? getUserId(user) : null;
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-  
+  const queryClient = useQueryClient();
+
+  // Refs para scroll
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const previousConversationRef = useRef<string | null>(null);
+
   // Socket.IO para tiempo real
-  const { joinConversation, leaveConversation, markAsRead: socketMarkAsRead, onNewMessage, offNewMessage } = useSocketIO();
-  
-  // Obtener conversaciones (mantener TanStack Query solo para lista)
-  const { data: conversations = [], isLoading: loadingConversations } = useConversations();
-  
+  const {
+    isConnected,
+    joinConversation,
+    leaveConversation,
+    markAsRead: socketMarkAsRead,
+    onNewMessage,
+  } = useSocketIO();
+
+  // Obtener conversaciones
+  const {
+    data: conversations = [],
+    isLoading: loadingConversations,
+    refetch: refetchConversations,
+  } = useConversations();
+
   // Estado para conversación seleccionada y mensajes
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -37,20 +52,71 @@ export default function MessagesPage() {
   const [messageText, setMessageText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Mutations
-  const markAsRead = useMarkAsRead();
+  // Mutation para marcar como leído (fallback REST)
+  const markAsReadMutation = useMarkAsRead();
 
-  // Cargar mensajes iniciales cuando se selecciona una conversación
+  // Función para scroll al final
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
+
+  // Scroll automático cuando cambian los mensajes
+  useLayoutEffect(() => {
+    if (messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages, scrollToBottom]);
+
+  // Cargar mensajes cuando cambia conversationIdParam (no depende de conversations)
   useEffect(() => {
-    const loadMessages = async () => {
-      if (!selectedChat || !userId) return;
-      
+    const loadConversation = async () => {
+      if (!conversationIdParam || !userId) {
+        // Limpiar si no hay conversación seleccionada
+        if (previousConversationRef.current) {
+          leaveConversation(parseInt(previousConversationRef.current, 10));
+          previousConversationRef.current = null;
+        }
+        setSelectedChat(null);
+        setMessages([]);
+        return;
+      }
+
+      // Evitar recargar la misma conversación
+      if (previousConversationRef.current === conversationIdParam) {
+        return;
+      }
+
+      // Salir de la conversación anterior
+      if (previousConversationRef.current) {
+        leaveConversation(parseInt(previousConversationRef.current, 10));
+      }
+
+      const conversationId = parseInt(conversationIdParam, 10);
+      previousConversationRef.current = conversationIdParam;
+
+      // Buscar chat en la lista de conversaciones (si está disponible)
+      const chatFromList = conversations.find((c) => c.id === conversationIdParam);
+      if (chatFromList) {
+        setSelectedChat(chatFromList);
+      } else {
+        // Crear un chat temporal mientras carga
+        setSelectedChat({
+          id: conversationIdParam,
+          participantId: '',
+          participantName: 'Cargando...',
+          lastMessage: '',
+          lastMessageTime: new Date().toISOString(),
+          unreadCount: 0,
+        });
+      }
+
+      // Cargar mensajes
       setLoadingMessages(true);
+      setMessages([]);
+
       try {
-        const conversationId = parseInt(selectedChat.id, 10);
         const data = await chatService.getMessages(apiUrl, String(userId), conversationId);
-        
-        // Transformar mensajes
+
         const transformedMessages: Message[] = data.map((msg) => ({
           id: msg.message_id.toString(),
           senderId: msg.sender_id,
@@ -59,8 +125,20 @@ export default function MessagesPage() {
           timestamp: msg.created_at,
           read: msg.is_read === 1,
         }));
-        
+
         setMessages(transformedMessages);
+
+        // Unirse a la conversación via Socket.IO
+        joinConversation(conversationId);
+
+        // Marcar como leída si hay mensajes no leídos del otro usuario
+        const hasUnread = transformedMessages.some(
+          (msg) => !msg.read && msg.senderId !== String(userId)
+        );
+        if (hasUnread) {
+          socketMarkAsRead(conversationId);
+          markAsReadMutation.mutate(conversationId);
+        }
       } catch (err) {
         console.error('Error cargando mensajes:', err);
         toast.error('Error al cargar los mensajes');
@@ -69,99 +147,99 @@ export default function MessagesPage() {
       }
     };
 
-    loadMessages();
-  }, [selectedChat?.id, userId, apiUrl, toast]);
+    loadConversation();
+  }, [
+    conversationIdParam,
+    userId,
+    apiUrl,
+    conversations,
+    joinConversation,
+    leaveConversation,
+    socketMarkAsRead,
+    markAsReadMutation,
+    toast,
+  ]);
+
+  // Actualizar selectedChat cuando se carguen las conversaciones
+  useEffect(() => {
+    if (conversationIdParam && conversations.length > 0 && selectedChat) {
+      const chatFromList = conversations.find((c) => c.id === conversationIdParam);
+      if (chatFromList && chatFromList.participantName !== selectedChat.participantName) {
+        setSelectedChat(chatFromList);
+      }
+    }
+  }, [conversations, conversationIdParam, selectedChat]);
 
   // Listener de Socket.IO para nuevos mensajes
   useEffect(() => {
-    if (!selectedChat) return;
-
-    const currentConversationId = parseInt(selectedChat.id, 10);
-
-    const handleNewMessage = (messageData: any) => {
+    const cleanup = onNewMessage((messageData: MessageData) => {
       console.log('📨 Nuevo mensaje Socket.IO:', messageData);
-      
-      // Solo agregar si es de esta conversación
-      if (messageData.conversation_id !== currentConversationId) return;
 
-      const newMessage: Message = {
-        id: messageData.message_id.toString(),
-        senderId: messageData.sender_id,
-        senderName: messageData.sender_id === userId ? 'Tú' : 'Usuario',
-        content: messageData.message_text,
-        timestamp: messageData.created_at,
-        read: false,
-      };
+      const messageConversationId = messageData.conversation_id.toString();
+      const currentConversationId = previousConversationRef.current;
 
-      setMessages((prev) => [...prev, newMessage]);
+      // Si es de la conversación actual
+      if (currentConversationId && messageConversationId === currentConversationId) {
+        // Verificar que no sea un duplicado (mensaje optimista ya agregado)
+        setMessages((prev) => {
+          const isDuplicate = prev.some(
+            (msg) =>
+              msg.id === messageData.message_id.toString() ||
+              (msg.id.startsWith('temp-') &&
+                msg.content === messageData.message_text &&
+                msg.senderId === String(messageData.sender_id))
+          );
 
-      // Scroll al final
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-      }, 100);
-    };
-
-    onNewMessage(handleNewMessage);
-
-    return () => {
-      offNewMessage();
-    };
-  }, [selectedChat?.id, userId, onNewMessage, offNewMessage]);
-
-  // Efecto para seleccionar conversación desde URL params
-  useEffect(() => {
-    if (conversationIdParam && conversations.length > 0) {
-      const chat = conversations.find(c => c.id === conversationIdParam);
-      
-      // Solo actualizar si el chat cambió
-      if (chat && chat.id !== selectedChat?.id) {
-        // Salir de la conversación anterior si existe
-        if (selectedChat) {
-          leaveConversation(parseInt(selectedChat.id, 10));
-        }
-        
-        setSelectedChat(chat);
-        setMessages([]); // Limpiar mensajes anteriores
-        
-        // Unirse a la nueva conversación via Socket.IO
-        joinConversation(parseInt(chat.id, 10));
-        
-        // Scroll al final cuando se selecciona una conversación
-        setTimeout(() => {
-          if (messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+          if (isDuplicate) {
+            // Actualizar el mensaje temporal con el ID real
+            return prev.map((msg) =>
+              msg.id.startsWith('temp-') &&
+              msg.content === messageData.message_text &&
+              msg.senderId === String(messageData.sender_id)
+                ? {
+                    ...msg,
+                    id: messageData.message_id.toString(),
+                    timestamp: messageData.created_at,
+                  }
+                : msg
+            );
           }
-        }, 300);
-      }
-    } else if (!conversationIdParam && selectedChat) {
-      // Salir de la conversación si se deselecciona
-      leaveConversation(parseInt(selectedChat.id, 10));
-      setSelectedChat(null);
-      setMessages([]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationIdParam, conversations]);
 
-  // Marcar como leída cuando se selecciona una conversación o llegan nuevos mensajes
-  useEffect(() => {
-    if (selectedChat && messages.length > 0) {
-      // Verificar si hay mensajes no leídos del otro usuario
-      const hasUnreadMessages = messages.some(
-        msg => !msg.read && msg.senderId !== user?.id && msg.senderId !== user?.user_id
-      );
-      
-      if (hasUnreadMessages) {
-        const convId = parseInt(selectedChat.id, 10);
-        // Usar Socket.IO para marcar como leído en tiempo real
-        socketMarkAsRead(convId);
-        // También usar REST API como fallback
-        markAsRead.mutate(convId);
+          // Agregar nuevo mensaje
+          const newMessage: Message = {
+            id: messageData.message_id.toString(),
+            senderId: String(messageData.sender_id),
+            senderName: String(messageData.sender_id) === String(userId) ? 'Tú' : 'Usuario',
+            content: messageData.message_text,
+            timestamp: messageData.created_at,
+            read: false,
+          };
+
+          return [...prev, newMessage];
+        });
+
+        // Marcar como leído si el mensaje es del otro usuario
+        if (String(messageData.sender_id) !== String(userId)) {
+          const convId = parseInt(currentConversationId, 10);
+          socketMarkAsRead(convId);
+        }
       }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChat?.id, messages.length]); // Depender de selectedChat.id y cantidad de mensajes
+
+      // Actualizar lista de conversaciones para reflejar el nuevo mensaje
+      refetchConversations();
+    });
+
+    return cleanup;
+  }, [userId, onNewMessage, socketMarkAsRead, refetchConversations]);
+
+  // Cleanup al desmontar
+  useEffect(() => {
+    return () => {
+      if (previousConversationRef.current) {
+        leaveConversation(parseInt(previousConversationRef.current, 10));
+      }
+    };
+  }, [leaveConversation]);
 
   const filteredChats = conversations.filter((chat) =>
     chat.participantName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -170,18 +248,17 @@ export default function MessagesPage() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     const conversationId = selectedChat ? parseInt(selectedChat.id, 10) : null;
-    
+
     if (messageText.trim() && conversationId && userId) {
-      // Validar longitud del mensaje (máximo 2000 caracteres según backend)
       if (messageText.trim().length > 2000) {
         toast.error('El mensaje es demasiado largo. Máximo 2000 caracteres.');
         return;
       }
-      
+
       const messageContent = messageText.trim();
       setSendingMessage(true);
-      
-      // Agregar mensaje de forma optimista a la UI
+
+      // Agregar mensaje optimista
       const optimisticMessage: Message = {
         id: `temp-${Date.now()}`,
         senderId: String(userId),
@@ -190,27 +267,19 @@ export default function MessagesPage() {
         timestamp: new Date().toISOString(),
         read: false,
       };
-      
+
       setMessages((prev) => [...prev, optimisticMessage]);
       setMessageText('');
-      
-      // Scroll al final inmediatamente
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-      }, 50);
-      
+
       try {
-        // Enviar mensaje via REST API
         const result = await chatService.sendMessage(apiUrl, String(userId), conversationId, {
           message_text: messageContent,
         });
-        
-        // Reemplazar mensaje temporal con el real del backend
-        setMessages((prev) => 
-          prev.map((msg) => 
-            msg.id === optimisticMessage.id 
+
+        // El mensaje real llegará via Socket.IO, pero actualizamos el ID por si acaso
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === optimisticMessage.id
               ? {
                   ...msg,
                   id: result.message_id.toString(),
@@ -222,13 +291,20 @@ export default function MessagesPage() {
       } catch (err) {
         console.error('Error al enviar mensaje:', err);
         toast.error(err instanceof Error ? err.message : 'Error al enviar el mensaje');
-        
-        // Remover mensaje optimista si falla
+        // Remover mensaje optimista
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessage.id));
       } finally {
         setSendingMessage(false);
       }
     }
+  };
+
+  const handleSelectChat = (chatId: string) => {
+    navigate(`/messages/${chatId}`);
+  };
+
+  const handleBackToList = () => {
+    navigate('/messages');
   };
 
   if (loadingConversations) {
@@ -257,13 +333,18 @@ export default function MessagesPage() {
       <Card padding="none" className="h-[calc(100vh-200px)] overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-3 h-full">
           {/* Lista de chats */}
-          <div className={`border-r border-gray-200 dark:border-gray-700 flex flex-col ${
-            selectedChat ? 'hidden md:flex' : 'flex'
-          }`}>
+          <div
+            className={`border-r border-gray-200 dark:border-gray-700 flex flex-col ${
+              selectedChat ? 'hidden md:flex' : 'flex'
+            }`}
+          >
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                Mensajes
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Mensajes</h2>
+                {isConnected && (
+                  <span className="w-2 h-2 bg-green-500 rounded-full" title="Conectado" />
+                )}
+              </div>
               <input
                 type="text"
                 value={searchTerm}
@@ -273,15 +354,13 @@ export default function MessagesPage() {
               />
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar max-h-[calc(100vh-300px)]">
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
               {filteredChats.map((chat) => (
                 <button
                   key={chat.id}
-                  onClick={() => navigate(`/messages/${chat.id}`)}
+                  onClick={() => handleSelectChat(chat.id)}
                   className={`w-full p-4 flex items-start space-x-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-200 dark:border-gray-700 ${
-                    selectedChat?.id === chat.id
-                      ? 'bg-teal-50 dark:bg-teal-900/20'
-                      : ''
+                    selectedChat?.id === chat.id ? 'bg-teal-50 dark:bg-teal-900/20' : ''
                   }`}
                 >
                   <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900 rounded-full flex items-center justify-center flex-shrink-0">
@@ -317,15 +396,15 @@ export default function MessagesPage() {
           </div>
 
           {/* Panel de conversación */}
-          <div className={`md:col-span-2 flex flex-col ${
-            selectedChat ? 'flex' : 'hidden md:flex'
-          }`}>
+          <div
+            className={`md:col-span-2 flex flex-col ${selectedChat ? 'flex' : 'hidden md:flex'}`}
+          >
             {selectedChat ? (
               <>
                 <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex items-center space-x-3">
                     <button
-                      onClick={() => navigate('/messages')}
+                      onClick={handleBackToList}
                       className="md:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                     >
                       <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
@@ -344,7 +423,7 @@ export default function MessagesPage() {
                   </div>
                 </div>
 
-                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar max-h-[calc(100vh-380px)]">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                   {loadingMessages ? (
                     <div className="flex justify-center items-center h-full">
                       <LoadingSpinner message="Cargando mensajes..." />
@@ -356,42 +435,52 @@ export default function MessagesPage() {
                       </p>
                     </div>
                   ) : (
-                    messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${
-                          message.senderId === user?.id || message.senderId === user?.user_id
-                            ? 'justify-end'
-                            : 'justify-start'
-                        }`}
-                      >
-                        <div
-                          className={`max-w-[70%] rounded-lg p-3 ${
-                            message.senderId === user?.id || message.senderId === user?.user_id
-                              ? 'bg-teal-600 text-white'
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
-                          }`}
-                        >
-                          <p className="text-sm break-words whitespace-pre-wrap">{message.content}</p>
-                          <p
-                            className={`text-xs mt-1 ${
-                              message.senderId === user?.id || message.senderId === user?.user_id
-                                ? 'text-teal-100'
-                                : 'text-gray-500 dark:text-gray-400'
-                            }`}
+                    <>
+                      {messages.map((message) => {
+                        const isOwnMessage =
+                          message.senderId === user?.id ||
+                          message.senderId === user?.user_id ||
+                          message.senderId === String(userId);
+
+                        return (
+                          <div
+                            key={message.id}
+                            className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                           >
-                            {new Date(message.timestamp).toLocaleTimeString('es-ES', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    ))
+                            <div
+                              className={`max-w-[70%] rounded-lg p-3 ${
+                                isOwnMessage
+                                  ? 'bg-teal-600 text-white'
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
+                              }`}
+                            >
+                              <p className="text-sm break-words whitespace-pre-wrap">
+                                {message.content}
+                              </p>
+                              <p
+                                className={`text-xs mt-1 ${
+                                  isOwnMessage ? 'text-teal-100' : 'text-gray-500 dark:text-gray-400'
+                                }`}
+                              >
+                                {new Date(message.timestamp).toLocaleTimeString('es-ES', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {/* Elemento invisible para scroll automático */}
+                      <div ref={messagesEndRef} />
+                    </>
                   )}
                 </div>
 
-                <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-200 dark:border-gray-700">
+                <form
+                  onSubmit={handleSendMessage}
+                  className="p-4 border-t border-gray-200 dark:border-gray-700"
+                >
                   <div className="relative">
                     <input
                       type="text"

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { chatService, MessageRecord, SendMessagePayload } from '../services/chatService';
 import useUserStore from '../store/useUserStore';
 import useGlobalStore from '../store/useGlobalStore';
@@ -7,6 +7,7 @@ import { Message } from '../types';
 
 /**
  * Hook para obtener los mensajes de una conversación
+ * NOTA: Para tiempo real, usar el estado local + Socket.IO en MessagesPage
  */
 export function useMessages(conversationId: number | null, enabled: boolean = true) {
   const user = useUserStore((s) => s.user);
@@ -20,16 +21,16 @@ export function useMessages(conversationId: number | null, enabled: boolean = tr
       return chatService.getMessages(apiUrl, String(userId), conversationId);
     },
     enabled: enabled && !!userId && !!conversationId,
-    staleTime: 30000, // 30 segundos
-    refetchOnWindowFocus: false, // Evitar refetch al cambiar de ventana
-    // Removido refetchInterval - ahora usamos Socket.IO para actualizaciones en tiempo real
+    staleTime: Infinity, // No refetch automático - Socket.IO maneja actualizaciones
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   // Transformar datos del backend al formato esperado por el frontend
   const transformedData: Message[] | undefined = query.data?.map((msg: MessageRecord) => ({
     id: msg.message_id.toString(),
     senderId: msg.sender_id,
-    senderName: msg.sender_id === userId ? 'Tú' : 'Usuario', // Se puede mejorar con nombre real
+    senderName: msg.sender_id === userId ? 'Tú' : 'Usuario',
     content: msg.message_text,
     timestamp: msg.created_at,
     read: msg.is_read === 1,
@@ -43,34 +44,30 @@ export function useMessages(conversationId: number | null, enabled: boolean = tr
 
 /**
  * Hook para enviar un mensaje
+ * NOTA: Socket.IO maneja las actualizaciones en tiempo real,
+ * no se invalidan queries para evitar conflictos
  */
 export function useSendMessage() {
   const user = useUserStore((s) => s.user);
   const apiUrl = useGlobalStore((s) => s.apiUrl);
   const userId = user ? getUserId(user) : null;
-  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      conversationId, 
-      messageText 
-    }: { 
-      conversationId: number; 
+    mutationFn: async ({
+      conversationId,
+      messageText,
+    }: {
+      conversationId: number;
       messageText: string;
     }) => {
       if (!userId) throw new Error('Usuario no autenticado');
-      
+
       const payload: SendMessagePayload = {
         message_text: messageText,
       };
-      
+
       return chatService.sendMessage(apiUrl, String(userId), conversationId, payload);
     },
-    onSuccess: (_, { conversationId }) => {
-      // Invalidar mensajes de esta conversación
-      queryClient.invalidateQueries({ queryKey: ['messages', apiUrl, userId, conversationId] });
-      // Invalidar la lista de conversaciones para actualizar el último mensaje
-      queryClient.invalidateQueries({ queryKey: ['conversations', apiUrl, userId] });
-    },
+    // No invalidamos queries - Socket.IO emitirá message:new que actualiza el estado local
   });
 }

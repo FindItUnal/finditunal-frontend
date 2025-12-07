@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { socketService, MessageData } from '../services/socketService';
+import {
+  socketService,
+  MessageData,
+  NotificationData,
+  ConversationReadData,
+} from '../services/socketService';
 import useGlobalStore from '../store/useGlobalStore';
 import useUserStore from '../store/useUserStore';
 import { getUserId } from '../utils/userUtils';
+
+export type { MessageData, NotificationData, ConversationReadData };
 
 /**
  * Hook para manejar la conexión de Socket.IO y eventos en tiempo real
@@ -12,35 +19,53 @@ export function useSocketIO() {
   const user = useUserStore((s) => s.user);
   const userId = user ? getUserId(user) : null;
   const hasConnected = useRef(false);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(socketService.isConnected());
 
   useEffect(() => {
-    // Solo conectar si hay usuario autenticado y no se ha conectado antes
-    if (!userId || hasConnected.current) return;
+    // Solo conectar si hay usuario autenticado
+    if (!userId) return;
+
+    // Evitar reconexiones innecesarias
+    if (hasConnected.current && socketService.isConnected()) {
+      return;
+    }
 
     console.log('🔌 Conectando Socket.IO...');
     const socket = socketService.connect(apiUrl);
     hasConnected.current = true;
-    setIsConnected(true);
 
-    socket.on('connect', () => {
+    const handleConnect = () => {
       console.log('✅ Conectado a Socket.IO');
       setIsConnected(true);
-    });
+    };
 
-    socket.on('disconnect', () => {
+    const handleDisconnect = () => {
       console.log('❌ Desconectado de Socket.IO');
       setIsConnected(false);
-    });
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+
+    // Actualizar estado inicial
+    setIsConnected(socket.connected);
 
     // Cleanup al desmontar
     return () => {
-      console.log('🔌 Desconectando Socket.IO...');
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+    };
+  }, [userId, apiUrl]);
+
+  // Desconectar cuando el usuario cierra sesión
+  useEffect(() => {
+    if (!userId && hasConnected.current) {
+      console.log('🔌 Desconectando Socket.IO (logout)...');
       socketService.disconnect();
       hasConnected.current = false;
       setIsConnected(false);
-    };
-  }, [userId, apiUrl]);
+    }
+  }, [userId]);
 
   const joinConversation = useCallback((conversationId: number) => {
     socketService.joinConversation(conversationId);
@@ -54,12 +79,21 @@ export function useSocketIO() {
     socketService.markAsRead(conversationId);
   }, []);
 
-  const onNewMessage = useCallback((callback: (message: MessageData) => void) => {
-    socketService.onNewMessage(callback);
+  const sendMessage = useCallback((conversationId: number, messageText: string) => {
+    socketService.sendMessage(conversationId, messageText);
   }, []);
 
-  const offNewMessage = useCallback(() => {
-    socketService.offNewMessage();
+  // Los callbacks ahora retornan funciones de cleanup
+  const onNewMessage = useCallback((callback: (message: MessageData) => void) => {
+    return socketService.onNewMessage(callback);
+  }, []);
+
+  const onNewNotification = useCallback((callback: (notification: NotificationData) => void) => {
+    return socketService.onNewNotification(callback);
+  }, []);
+
+  const onConversationRead = useCallback((callback: (data: ConversationReadData) => void) => {
+    return socketService.onConversationRead(callback);
   }, []);
 
   return {
@@ -67,7 +101,9 @@ export function useSocketIO() {
     joinConversation,
     leaveConversation,
     markAsRead,
+    sendMessage,
     onNewMessage,
-    offNewMessage,
+    onNewNotification,
+    onConversationRead,
   };
 }
