@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/molecules/ConfirmDialog';
 import { useObjectById, useComplaintMutation } from '../hooks';
 import PublishModal from '../components/organisms/PublishModal';
 import { useCategories, useLocations, useReportMutations } from '../hooks';
+import { useConversationExists, useCreateConversation } from '../hooks/useConversations';
 import { formatDate } from '../utils/dateUtils';
 import { EmptyState } from '../components/organisms';
 
@@ -21,6 +22,7 @@ export default function ObjectDetailPage() {
   const user = useUserStore((s) => s.user);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [createConversationOpen, setCreateConversationOpen] = useState(false);
   const { data: categories = [] } = useCategories();
   const { data: locations = [] } = useLocations();
   const { handlePublish, deleteReport, isPending: isPublishing } = useReportMutations();
@@ -30,6 +32,17 @@ export default function ObjectDetailPage() {
   
   // Hook para denuncias
   const { submitComplaint } = useComplaintMutation();
+
+  // Verificar si es el dueño del objeto
+  const isOwner = !!(user && object && user.id === object.userId);
+
+  // Hooks para conversaciones
+  const reportId = object?.id ? parseInt(object.id, 10) : null;
+  const { data: conversationExists, isLoading: checkingConversation } = useConversationExists(
+    reportId,
+    !isOwner && !!reportId // Verificar automáticamente solo si no es el dueño
+  );
+  const createConversation = useCreateConversation();
 
   console.log('Cargando objeto con ID:', id, object);
 
@@ -72,8 +85,6 @@ export default function ObjectDetailPage() {
     );
   }
 
-  const isOwner = !!(user && object && user.id === object.userId);
-
   const handlePublishSubmit = async (payload: {
     title: string;
     description: string;
@@ -106,6 +117,34 @@ export default function ObjectDetailPage() {
     } catch (err) {
       console.error('Error al eliminar desde detalle:', err);
       toast.error(err instanceof Error ? err.message : 'Error al eliminar la publicación');
+    }
+  };
+
+  const handleContactClick = async () => {
+    if (!reportId || !user) return;
+
+    // Si ya existe conversación, navegar directamente a mensajes
+    if (conversationExists?.exists) {
+      navigate('/messages');
+    } else {
+      // Si no existe, mostrar diálogo de confirmación
+      setCreateConversationOpen(true);
+    }
+  };
+
+  const handleCreateConversation = async () => {
+    if (!reportId) return;
+
+    try {
+      const newConversation = await createConversation.mutateAsync(reportId);
+      setCreateConversationOpen(false);
+      toast.success('Conversación creada exitosamente');
+      navigate(`/messages/${newConversation.conversation_id}`);
+    } catch (err) {
+      console.error('Error al crear conversación:', err);
+      toast.error(
+        err instanceof Error ? err.message : 'Error al crear la conversación'
+      );
     }
   };
 
@@ -235,10 +274,16 @@ export default function ObjectDetailPage() {
                 <Button
                   variant="primary"
                   icon={MessageCircle}
-                  onClick={() => navigate('/messages')}
+                  onClick={handleContactClick}
                   className="flex-1"
+                  disabled={checkingConversation}
                 >
-                  Contactar
+                  {checkingConversation 
+                    ? 'Verificando...' 
+                    : conversationExists?.exists 
+                      ? 'Enviar mensaje' 
+                      : 'Contactar'
+                  }
                 </Button>
                 {user?.role === 'admin' ? (
                   <>
@@ -293,6 +338,16 @@ export default function ObjectDetailPage() {
         onPublish={handlePublishSubmit}
         submitLabel="Guardar cambios"
         isLoading={isPublishing}
+      />
+
+      <ConfirmDialog
+        open={createConversationOpen && !conversationExists?.exists}
+        onOpenChange={setCreateConversationOpen}
+        title="Iniciar conversación"
+        description={`¿Deseas iniciar una conversación sobre "${object?.title}"?`}
+        confirmLabel="Crear conversación"
+        cancelLabel="Cancelar"
+        onConfirm={handleCreateConversation}
       />
 
       <ReportDialog
