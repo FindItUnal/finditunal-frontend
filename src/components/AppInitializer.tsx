@@ -4,12 +4,16 @@ import useUserStore from '../store/useUserStore';
 import useGlobalStore from '../store/useGlobalStore';
 import { profileService } from '../services';
 import { LoadingSpinner } from './atoms';
+import { useSocketIO } from '../hooks/useSocketIO';
 
 export default function AppInitializer() {
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
   const apiUrl = useGlobalStore((s) => s.apiUrl);
   const [isChecking, setIsChecking] = useState(true);
+  
+  // Inicializar Socket.IO cuando hay usuario autenticado
+  useSocketIO();
 
   useEffect(() => {
     const checkSession = async () => {
