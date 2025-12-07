@@ -2,41 +2,113 @@ import { useState, useEffect, useRef } from 'react';
 import { PageTemplate } from '../components/templates';
 import { Card } from '../components/atoms';
 import { MessageCircle, Send, ArrowLeft } from 'lucide-react';
-import { Chat } from '../types';
+import { Chat, Message } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useConversations, useMarkAsRead } from '../hooks/useConversations';
-import { useMessages, useSendMessage } from '../hooks/useMessages';
 import { useParams, useNavigate } from 'react-router-dom';
 import { LoadingSpinner } from '../components/atoms';
 import { EmptyState } from '../components/organisms';
 import useUserStore from '../store/useUserStore';
 import { useSocketIO } from '../hooks/useSocketIO';
+import { chatService } from '../services/chatService';
+import useGlobalStore from '../store/useGlobalStore';
+import { getUserId } from '../utils/userUtils';
 
 export default function MessagesPage() {
   const toast = useToast();
   const { conversationId: conversationIdParam } = useParams<{ conversationId?: string }>();
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
+  const apiUrl = useGlobalStore((s) => s.apiUrl);
+  const userId = user ? getUserId(user) : null;
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   
   // Socket.IO para tiempo real
-  const { joinConversation, leaveConversation, markAsRead: socketMarkAsRead } = useSocketIO();
+  const { joinConversation, leaveConversation, markAsRead: socketMarkAsRead, onNewMessage, offNewMessage } = useSocketIO();
   
-  // Obtener conversaciones
+  // Obtener conversaciones (mantener TanStack Query solo para lista)
   const { data: conversations = [], isLoading: loadingConversations } = useConversations();
   
-  // Estado para conversación seleccionada
+  // Estado para conversación seleccionada y mensajes
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Obtener mensajes de la conversación seleccionada
-  const conversationId = selectedChat ? parseInt(selectedChat.id, 10) : null;
-  const { data: messages = [], isLoading: loadingMessages } = useMessages(conversationId);
-  
   // Mutations
-  const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
+
+  // Cargar mensajes iniciales cuando se selecciona una conversación
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (!selectedChat || !userId) return;
+      
+      setLoadingMessages(true);
+      try {
+        const conversationId = parseInt(selectedChat.id, 10);
+        const data = await chatService.getMessages(apiUrl, String(userId), conversationId);
+        
+        // Transformar mensajes
+        const transformedMessages: Message[] = data.map((msg) => ({
+          id: msg.message_id.toString(),
+          senderId: msg.sender_id,
+          senderName: msg.sender_id === userId ? 'Tú' : 'Usuario',
+          content: msg.message_text,
+          timestamp: msg.created_at,
+          read: msg.is_read === 1,
+        }));
+        
+        setMessages(transformedMessages);
+      } catch (err) {
+        console.error('Error cargando mensajes:', err);
+        toast.error('Error al cargar los mensajes');
+      } finally {
+        setLoadingMessages(false);
+      }
+    };
+
+    loadMessages();
+  }, [selectedChat?.id, userId, apiUrl, toast]);
+
+  // Listener de Socket.IO para nuevos mensajes
+  useEffect(() => {
+    if (!selectedChat) return;
+
+    const currentConversationId = parseInt(selectedChat.id, 10);
+
+    const handleNewMessage = (messageData: any) => {
+      console.log('📨 Nuevo mensaje Socket.IO:', messageData);
+      
+      // Solo agregar si es de esta conversación
+      if (messageData.conversation_id !== currentConversationId) return;
+
+      const newMessage: Message = {
+        id: messageData.message_id.toString(),
+        senderId: messageData.sender_id,
+        senderName: messageData.sender_id === userId ? 'Tú' : 'Usuario',
+        content: messageData.message_text,
+        timestamp: messageData.created_at,
+        read: false,
+      };
+
+      setMessages((prev) => [...prev, newMessage]);
+
+      // Scroll al final
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    };
+
+    onNewMessage(handleNewMessage);
+
+    return () => {
+      offNewMessage();
+    };
+  }, [selectedChat?.id, userId, onNewMessage, offNewMessage]);
 
   // Efecto para seleccionar conversación desde URL params
   useEffect(() => {
@@ -49,6 +121,7 @@ export default function MessagesPage() {
         }
         
         setSelectedChat(chat);
+        setMessages([]); // Limpiar mensajes anteriores
         
         // Unirse a la nueva conversación via Socket.IO
         joinConversation(parseInt(chat.id, 10));
@@ -66,6 +139,7 @@ export default function MessagesPage() {
         leaveConversation(parseInt(selectedChat.id, 10));
       }
       setSelectedChat(null);
+      setMessages([]);
     }
   }, [conversationIdParam, conversations, selectedChat, joinConversation, leaveConversation]);
 
@@ -94,26 +168,64 @@ export default function MessagesPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (messageText.trim() && conversationId) {
+    const conversationId = selectedChat ? parseInt(selectedChat.id, 10) : null;
+    
+    if (messageText.trim() && conversationId && userId) {
       // Validar longitud del mensaje (máximo 2000 caracteres según backend)
       if (messageText.trim().length > 2000) {
         toast.error('El mensaje es demasiado largo. Máximo 2000 caracteres.');
         return;
       }
       
-      try {
-        await sendMessage.mutateAsync({
-          conversationId,
-          messageText: messageText.trim(),
-        });
-        setMessageText('');
-        // Scroll al final solo después de enviar exitosamente
+      const messageContent = messageText.trim();
+      setSendingMessage(true);
+      
+      // Agregar mensaje de forma optimista a la UI
+      const optimisticMessage: Message = {
+        id: `temp-${Date.now()}`,
+        senderId: String(userId),
+        senderName: 'Tú',
+        content: messageContent,
+        timestamp: new Date().toISOString(),
+        read: false,
+      };
+      
+      setMessages((prev) => [...prev, optimisticMessage]);
+      setMessageText('');
+      
+      // Scroll al final inmediatamente
+      setTimeout(() => {
         if (messagesContainerRef.current) {
           messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
         }
+      }, 50);
+      
+      try {
+        // Enviar mensaje via REST API
+        const result = await chatService.sendMessage(apiUrl, String(userId), conversationId, {
+          message_text: messageContent,
+        });
+        
+        // Reemplazar mensaje temporal con el real del backend
+        setMessages((prev) => 
+          prev.map((msg) => 
+            msg.id === optimisticMessage.id 
+              ? {
+                  ...msg,
+                  id: result.message_id.toString(),
+                  timestamp: result.created_at,
+                }
+              : msg
+          )
+        );
       } catch (err) {
         console.error('Error al enviar mensaje:', err);
         toast.error(err instanceof Error ? err.message : 'Error al enviar el mensaje');
+        
+        // Remover mensaje optimista si falla
+        setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessage.id));
+      } finally {
+        setSendingMessage(false);
       }
     }
   };
@@ -286,13 +398,13 @@ export default function MessagesPage() {
                       onChange={(e) => setMessageText(e.target.value)}
                       placeholder="Escribe un mensaje..."
                       className="w-full pl-4 pr-12 py-3 border border-gray-300 dark:border-gray-600 rounded-full focus:ring-2 focus:ring-teal-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 transition-all"
-                      disabled={sendMessage.isPending}
+                      disabled={sendingMessage}
                     />
                     <button
                       type="submit"
-                      disabled={sendMessage.isPending || !messageText.trim()}
+                      disabled={sendingMessage || !messageText.trim()}
                       className={`absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full transition-all ${
-                        messageText.trim() && !sendMessage.isPending
+                        messageText.trim() && !sendingMessage
                           ? 'bg-teal-600 hover:bg-teal-700 text-white'
                           : 'bg-gray-200 dark:bg-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                       }`}
