@@ -114,7 +114,9 @@ export default function MessagesPage() {
   useEffect(() => {
     if (conversationIdParam && conversations.length > 0) {
       const chat = conversations.find(c => c.id === conversationIdParam);
-      if (chat && (!selectedChat || selectedChat.id !== chat.id)) {
+      
+      // Solo actualizar si el chat cambió
+      if (chat && chat.id !== selectedChat?.id) {
         // Salir de la conversación anterior si existe
         if (selectedChat) {
           leaveConversation(parseInt(selectedChat.id, 10));
@@ -133,15 +135,14 @@ export default function MessagesPage() {
           }
         }, 300);
       }
-    } else if (!conversationIdParam) {
+    } else if (!conversationIdParam && selectedChat) {
       // Salir de la conversación si se deselecciona
-      if (selectedChat) {
-        leaveConversation(parseInt(selectedChat.id, 10));
-      }
+      leaveConversation(parseInt(selectedChat.id, 10));
       setSelectedChat(null);
       setMessages([]);
     }
-  }, [conversationIdParam, conversations, selectedChat, joinConversation, leaveConversation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationIdParam, conversations]);
 
   // Marcar como leída cuando se selecciona una conversación o llegan nuevos mensajes
   useEffect(() => {
