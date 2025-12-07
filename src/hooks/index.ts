@@ -9,6 +9,14 @@ export { useUserReports } from './useUserReports';
 export { useObjectById } from './useObjectById';
 export { useReportMutations } from './useReportMutations';
 export { useComplaintMutation } from './useComplaintMutation';
+export { 
+  useConversationExists, 
+  useConversations, 
+  useCreateConversation,
+  useDeleteConversation,
+  useMarkAsRead 
+} from './useConversations';
+export { useMessages, useSendMessage } from './useMessages';
 
 export type { UseSearchFilterReturn } from './useSearchFilter';
 export type { UseModalReturn } from './useModal';
