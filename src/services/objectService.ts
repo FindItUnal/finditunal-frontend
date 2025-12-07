@@ -15,6 +15,7 @@ export interface BackendObject {
   contact_method: string;
   date_lost_or_found: string | Date;
   image_url?: string;
+  user_id: string;
 }
 
 /**
@@ -52,7 +53,8 @@ export function mapBackendObjectToItem(
     location: backendObject.location,
     date: date,
     status: statusMap[backendObject.status] || 'found',
-    userId: '', // No viene del backend
+    userId: backendObject.user_id, 
+    contact_method: backendObject.contact_method,
     userName: '', // No viene del backend
     createdAt: new Date().toISOString(), // No viene del backend, usar fecha actual
     contact_method: backendObject.contact_method || '',
