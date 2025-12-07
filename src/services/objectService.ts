@@ -54,7 +54,6 @@ export function mapBackendObjectToItem(
     date: date,
     status: statusMap[backendObject.status] || 'found',
     userId: backendObject.user_id, 
-    contact_method: backendObject.contact_method,
     userName: '', // No viene del backend
     createdAt: new Date().toISOString(), // No viene del backend, usar fecha actual
     contact_method: backendObject.contact_method || '',
