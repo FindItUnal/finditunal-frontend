@@ -7,7 +7,7 @@ import { Button, Badge, BackButton, LoadingSpinner } from '../components/atoms';
 import { useToast } from '../context/ToastContext';
 import useUserStore from '../store/useUserStore';
 import ConfirmDialog from '../components/molecules/ConfirmDialog';
-import { useObjectById } from '../hooks';
+import { useObjectById, useComplaintMutation } from '../hooks';
 import { formatDate } from '../utils/dateUtils';
 import { EmptyState } from '../components/organisms';
 
@@ -21,6 +21,9 @@ export default function ObjectDetailPage() {
 
   // Usar hook de TanStack Query para cargar el objeto
   const { data: object, isLoading, error } = useObjectById(id);
+  
+  // Hook para denuncias
+  const { submitComplaint, isPending: isSubmittingComplaint } = useComplaintMutation();
 
   const statusConfig = {
     found: {
@@ -191,10 +194,31 @@ export default function ObjectDetailPage() {
       <ReportDialog
         open={reportOpen}
         onOpenChange={setReportOpen}
-        onReport={() => {
-          // TODO: Implementar envío de reporte al backend
-          toast.success('Reporte enviado correctamente');
-          setReportOpen(false);
+        onReport={async (payload) => {
+          if (!object) return;
+          
+          try {
+            const reportId = parseInt(object.id, 10);
+            if (isNaN(reportId)) {
+              toast.error('ID de publicación inválido');
+              return;
+            }
+            
+            await submitComplaint.mutateAsync({
+              reportId,
+              payload,
+            });
+            
+            toast.success('Denuncia enviada correctamente');
+            setReportOpen(false);
+          } catch (err) {
+            console.error('Error al enviar denuncia:', err);
+            toast.error(
+              err instanceof Error 
+                ? err.message 
+                : 'Error al enviar la denuncia. Por favor, intenta nuevamente.'
+            );
+          }
         }}
       />
     </PageTemplate>

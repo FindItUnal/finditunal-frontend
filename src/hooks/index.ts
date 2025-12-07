@@ -8,6 +8,7 @@ export { useObjects } from './useObjects';
 export { useUserReports } from './useUserReports';
 export { useObjectById } from './useObjectById';
 export { useReportMutations } from './useReportMutations';
+export { useComplaintMutation } from './useComplaintMutation';
 
 export type { UseSearchFilterReturn } from './useSearchFilter';
 export type { UseModalReturn } from './useModal';

@@ -13,3 +13,5 @@ export { locationService } from './locationService';
 export type { Location } from './locationService';
 export { reportService } from './reportService';
 export type { CreateReportData, UpdateReportData, UserReport } from './reportService';
+export { complaintService } from './complaintService';
+export type { CreateComplaintPayload, ComplaintResponse } from './complaintService';

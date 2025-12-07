@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PageTemplate } from '../components/templates';
 import { SearchFilterBar, ItemGrid, EmptyState } from '../components/organisms';
 import PublishModal from '../components/organisms/PublishModal';
-import { useSearchFilter, useModal, useCategories, useLocations, useObjects, useReportMutations } from '../hooks';
+import { useSearchFilter, useModal, useCategories, useLocations, useObjects, useReportMutations, useComplaintMutation } from '../hooks';
 import ReportDialog from '../components/molecules/ReportDialog';
 import { LoadingSpinner } from '../components/atoms';
 import { useToast } from '../context/ToastContext';
@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const { data: backendLocations = [] } = useLocations();
   const { data: items = [], isLoading: isLoadingObjects, error: objectsError } = useObjects();
   const { handlePublish, isPending: isPublishing } = useReportMutations();
+  const { submitComplaint } = useComplaintMutation();
 
   // Preparar categorías para el filtro (agregar "Todas" al inicio)
   const categories = useMemo(() => {
@@ -131,11 +132,32 @@ export default function DashboardPage() {
           setReportOpen(open);
           if (!open) setReportItemId(null);
         }}
-        onReport={() => {
-          // TODO: Implementar envío de reporte al backend
-          toast.success('Reporte enviado correctamente');
-          setReportOpen(false);
-          setReportItemId(null);
+        onReport={async (payload) => {
+          if (!reportItemId) return;
+          
+          try {
+            const reportId = parseInt(reportItemId, 10);
+            if (isNaN(reportId)) {
+              toast.error('ID de publicación inválido');
+              return;
+            }
+            
+            await submitComplaint.mutateAsync({
+              reportId,
+              payload,
+            });
+            
+            toast.success('Denuncia enviada correctamente');
+            setReportOpen(false);
+            setReportItemId(null);
+          } catch (err) {
+            console.error('Error al enviar denuncia:', err);
+            toast.error(
+              err instanceof Error 
+                ? err.message 
+                : 'Error al enviar la denuncia. Por favor, intenta nuevamente.'
+            );
+          }
         }}
       />
     </PageTemplate>
