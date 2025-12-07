@@ -34,6 +34,7 @@ export default function MessagesPage() {
     leaveConversation,
     markAsRead: socketMarkAsRead,
     onNewMessage,
+    onNewNotification,
   } = useSocketIO();
 
   // Obtener conversaciones
@@ -167,7 +168,7 @@ export default function MessagesPage() {
     }
   }, [conversations, conversationIdParam, selectedChat]);
 
-  // Listener de Socket.IO para nuevos mensajes
+  // Listener de Socket.IO para nuevos mensajes (cuando estás en el room de la conversación)
   useEffect(() => {
     const cleanup = onNewMessage((messageData: MessageData) => {
       console.log('📨 Nuevo mensaje Socket.IO:', messageData);
@@ -228,6 +229,19 @@ export default function MessagesPage() {
 
     return cleanup;
   }, [userId, onNewMessage, socketMarkAsRead, refetchConversations]);
+
+  // Listener de notificaciones (para mensajes en OTRAS conversaciones)
+  useEffect(() => {
+    const cleanup = onNewNotification((notification) => {
+      // Si es una notificación de mensaje de chat, actualizar la lista de conversaciones
+      if (notification.type === 'chat_message') {
+        console.log('🔔 Notificación de nuevo mensaje:', notification);
+        refetchConversations();
+      }
+    });
+
+    return cleanup;
+  }, [onNewNotification, refetchConversations]);
 
   // Cleanup al desmontar
   useEffect(() => {
