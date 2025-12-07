@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { PageTemplate } from '../components/templates';
-import { Card, Button } from '../components/atoms';
+import { Card } from '../components/atoms';
 import { MessageCircle, Send, ArrowLeft } from 'lucide-react';
 import { Chat } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -59,7 +59,8 @@ export default function MessagesPage() {
       const convId = parseInt(selectedChat.id, 10);
       markAsRead.mutate(convId);
     }
-  }, [selectedChat?.id, markAsRead]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChat?.id]); // Solo depender del ID, no de markAsRead
 
   const filteredChats = conversations.filter((chat) =>
     chat.participantName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -144,7 +145,7 @@ export default function MessagesPage() {
                   <div className="flex-1 text-left min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <h4 className="font-semibold text-gray-900 dark:text-white truncate">
-                        {chat.participantName}
+                        {chat.reportTitle || 'Conversación'}
                       </h4>
                       {chat.unreadCount > 0 && (
                         <span className="ml-2 px-2 py-1 bg-teal-600 text-white text-xs rounded-full">
@@ -152,6 +153,9 @@ export default function MessagesPage() {
                         </span>
                       )}
                     </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      {chat.participantName}
+                    </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
                       {chat.lastMessage}
                     </p>
@@ -186,13 +190,11 @@ export default function MessagesPage() {
                     </div>
                     <div>
                       <h3 className="font-bold text-gray-900 dark:text-white">
-                        {selectedChat.participantName}
+                        {selectedChat.reportTitle || 'Conversación'}
                       </h3>
-                      {selectedChat.reportTitle && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]">
-                          {selectedChat.reportTitle}
-                        </p>
-                      )}
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {selectedChat.participantName}
+                      </p>
                     </div>
                   </div>
                 </div>

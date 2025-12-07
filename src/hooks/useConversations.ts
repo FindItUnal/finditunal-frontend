@@ -39,7 +39,8 @@ export function useConversations() {
       return chatService.getConversations(apiUrl, String(userId));
     },
     enabled: !!userId,
-    staleTime: 10000, // 10 segundos
+    staleTime: 30000, // 30 segundos (aumentado de 10)
+    refetchOnWindowFocus: false, // Evitar refetch al cambiar de ventana
   });
 
   // Transformar datos del backend al formato esperado por el frontend
