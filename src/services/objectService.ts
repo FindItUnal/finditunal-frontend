@@ -55,6 +55,7 @@ export function mapBackendObjectToItem(
     userId: '', // No viene del backend
     userName: '', // No viene del backend
     createdAt: new Date().toISOString(), // No viene del backend, usar fecha actual
+    contact_method: backendObject.contact_method || '',
   };
 }
 

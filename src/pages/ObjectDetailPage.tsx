@@ -1,4 +1,4 @@
-import { MapPin, Calendar, User, MessageCircle, Trash2, Flag } from 'lucide-react';
+import { MapPin, Calendar, User, MessageCircle, Trash2, Flag, Phone } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageTemplate } from '../components/templates';
@@ -23,7 +23,7 @@ export default function ObjectDetailPage() {
   const { data: object, isLoading, error } = useObjectById(id);
   
   // Hook para denuncias
-  const { submitComplaint, isPending: isSubmittingComplaint } = useComplaintMutation();
+  const { submitComplaint } = useComplaintMutation();
 
   const statusConfig = {
     found: {
@@ -128,6 +128,18 @@ export default function ObjectDetailPage() {
                       Reportado por
                     </p>
                     <p className="text-gray-600 dark:text-gray-400">{object.userName}</p>
+                  </div>
+                </div>
+              )}
+
+              {object.contact_method && (
+                <div className="flex items-start gap-3">
+                  <Phone className="h-5 w-5 text-teal-600 dark:text-teal-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-700 dark:text-gray-200">
+                      Método de contacto
+                    </p>
+                    <p className="text-gray-600 dark:text-gray-400">{object.contact_method}</p>
                   </div>
                 </div>
               )}
