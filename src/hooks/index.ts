@@ -17,6 +17,7 @@ export {
   useMarkAsRead 
 } from './useConversations';
 export { useMessages, useSendMessage } from './useMessages';
+export { useSocketIO } from './useSocketIO';
 
 export type { UseSearchFilterReturn } from './useSearchFilter';
 export type { UseModalReturn } from './useModal';

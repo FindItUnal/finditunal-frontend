@@ -10,6 +10,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { LoadingSpinner } from '../components/atoms';
 import { EmptyState } from '../components/organisms';
 import useUserStore from '../store/useUserStore';
+import { useSocketIO } from '../hooks/useSocketIO';
 
 export default function MessagesPage() {
   const toast = useToast();
@@ -17,6 +18,9 @@ export default function MessagesPage() {
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Socket.IO para tiempo real
+  const { joinConversation, leaveConversation, markAsRead: socketMarkAsRead } = useSocketIO();
   
   // Obtener conversaciones
   const { data: conversations = [], isLoading: loadingConversations } = useConversations();
@@ -39,7 +43,16 @@ export default function MessagesPage() {
     if (conversationIdParam && conversations.length > 0) {
       const chat = conversations.find(c => c.id === conversationIdParam);
       if (chat && (!selectedChat || selectedChat.id !== chat.id)) {
+        // Salir de la conversación anterior si existe
+        if (selectedChat) {
+          leaveConversation(parseInt(selectedChat.id, 10));
+        }
+        
         setSelectedChat(chat);
+        
+        // Unirse a la nueva conversación via Socket.IO
+        joinConversation(parseInt(chat.id, 10));
+        
         // Scroll al final cuando se selecciona una conversación
         setTimeout(() => {
           if (messagesContainerRef.current) {
@@ -48,19 +61,32 @@ export default function MessagesPage() {
         }, 300);
       }
     } else if (!conversationIdParam) {
-      // Si no hay conversación en URL, deseleccionar
+      // Salir de la conversación si se deselecciona
+      if (selectedChat) {
+        leaveConversation(parseInt(selectedChat.id, 10));
+      }
       setSelectedChat(null);
     }
-  }, [conversationIdParam, conversations]);
+  }, [conversationIdParam, conversations, selectedChat, joinConversation, leaveConversation]);
 
-  // Marcar como leída cuando se selecciona una conversación
+  // Marcar como leída cuando se selecciona una conversación o llegan nuevos mensajes
   useEffect(() => {
-    if (selectedChat && selectedChat.unreadCount > 0) {
-      const convId = parseInt(selectedChat.id, 10);
-      markAsRead.mutate(convId);
+    if (selectedChat && messages.length > 0) {
+      // Verificar si hay mensajes no leídos del otro usuario
+      const hasUnreadMessages = messages.some(
+        msg => !msg.read && msg.senderId !== user?.id && msg.senderId !== user?.user_id
+      );
+      
+      if (hasUnreadMessages) {
+        const convId = parseInt(selectedChat.id, 10);
+        // Usar Socket.IO para marcar como leído en tiempo real
+        socketMarkAsRead(convId);
+        // También usar REST API como fallback
+        markAsRead.mutate(convId);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChat?.id]); // Solo depender del ID, no de markAsRead
+  }, [selectedChat?.id, messages.length]); // Depender de selectedChat.id y cantidad de mensajes
 
   const filteredChats = conversations.filter((chat) =>
     chat.participantName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -69,6 +95,12 @@ export default function MessagesPage() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (messageText.trim() && conversationId) {
+      // Validar longitud del mensaje (máximo 2000 caracteres según backend)
+      if (messageText.trim().length > 2000) {
+        toast.error('El mensaje es demasiado largo. Máximo 2000 caracteres.');
+        return;
+      }
+      
       try {
         await sendMessage.mutateAsync({
           conversationId,
@@ -227,7 +259,7 @@ export default function MessagesPage() {
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
                           }`}
                         >
-                          <p className="text-sm">{message.content}</p>
+                          <p className="text-sm break-words whitespace-pre-wrap">{message.content}</p>
                           <p
                             className={`text-xs mt-1 ${
                               message.senderId === user?.id || message.senderId === user?.user_id

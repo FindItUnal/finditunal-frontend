@@ -20,10 +20,9 @@ export function useMessages(conversationId: number | null, enabled: boolean = tr
       return chatService.getMessages(apiUrl, String(userId), conversationId);
     },
     enabled: enabled && !!userId && !!conversationId,
-    staleTime: 10000, // 10 segundos
-    refetchInterval: 30000, // Refetch cada 30 segundos (reducido de 10)
+    staleTime: 30000, // 30 segundos
     refetchOnWindowFocus: false, // Evitar refetch al cambiar de ventana
-    refetchIntervalInBackground: false, // No hacer polling si la ventana está en background
+    // Removido refetchInterval - ahora usamos Socket.IO para actualizaciones en tiempo real
   });
 
   // Transformar datos del backend al formato esperado por el frontend

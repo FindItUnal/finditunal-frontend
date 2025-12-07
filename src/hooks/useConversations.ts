@@ -20,7 +20,7 @@ export function useConversationExists(reportId: number | null, enabled: boolean 
       return chatService.checkConversationExists(apiUrl, String(userId), reportId);
     },
     enabled: enabled && !!userId && !!reportId,
-    staleTime: 30000, // 30 segundos
+    staleTime: 10000, // 30 segundos
   });
 }
 
@@ -39,7 +39,7 @@ export function useConversations() {
       return chatService.getConversations(apiUrl, String(userId));
     },
     enabled: !!userId,
-    staleTime: 30000, // 30 segundos (aumentado de 10)
+    staleTime: 10000, // 30 segundos (aumentado de 10)
     refetchOnWindowFocus: false, // Evitar refetch al cambiar de ventana
   });
 
