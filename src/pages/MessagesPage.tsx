@@ -13,7 +13,6 @@ import { useSocketIO, MessageData } from '../hooks/useSocketIO';
 import { chatService } from '../services/chatService';
 import useGlobalStore from '../store/useGlobalStore';
 import { getUserId } from '../utils/userUtils';
-import { useQueryClient } from '@tanstack/react-query';
 
 export default function MessagesPage() {
   const toast = useToast();
@@ -22,11 +21,11 @@ export default function MessagesPage() {
   const user = useUserStore((s) => s.user);
   const apiUrl = useGlobalStore((s) => s.apiUrl);
   const userId = user ? getUserId(user) : null;
-  const queryClient = useQueryClient();
 
-  // Refs para scroll
+  // Refs para scroll y estado previo
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const previousConversationRef = useRef<string | null>(null);
+  const isLoadingRef = useRef(false);
 
   // Socket.IO para tiempo real
   const {
@@ -67,9 +66,12 @@ export default function MessagesPage() {
     }
   }, [messages, scrollToBottom]);
 
-  // Cargar mensajes cuando cambia conversationIdParam (no depende de conversations)
+  // Cargar mensajes cuando cambia conversationIdParam
   useEffect(() => {
     const loadConversation = async () => {
+      // Prevenir ejecuciones duplicadas
+      if (isLoadingRef.current) return;
+
       if (!conversationIdParam || !userId) {
         // Limpiar si no hay conversación seleccionada
         if (previousConversationRef.current) {
@@ -93,6 +95,7 @@ export default function MessagesPage() {
 
       const conversationId = parseInt(conversationIdParam, 10);
       previousConversationRef.current = conversationIdParam;
+      isLoadingRef.current = true;
 
       // Buscar chat en la lista de conversaciones (si está disponible)
       const chatFromList = conversations.find((c) => c.id === conversationIdParam);
@@ -137,6 +140,7 @@ export default function MessagesPage() {
         );
         if (hasUnread) {
           socketMarkAsRead(conversationId);
+          // Usar REST API como fallback (sin agregar a dependencias)
           markAsReadMutation.mutate(conversationId);
         }
       } catch (err) {
@@ -144,21 +148,14 @@ export default function MessagesPage() {
         toast.error('Error al cargar los mensajes');
       } finally {
         setLoadingMessages(false);
+        isLoadingRef.current = false;
       }
     };
 
     loadConversation();
-  }, [
-    conversationIdParam,
-    userId,
-    apiUrl,
-    conversations,
-    joinConversation,
-    leaveConversation,
-    socketMarkAsRead,
-    markAsReadMutation,
-    toast,
-  ]);
+    // Solo dependencias estables - excluimos markAsReadMutation, conversations y toast
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationIdParam, userId, apiUrl, joinConversation, leaveConversation, socketMarkAsRead]);
 
   // Actualizar selectedChat cuando se carguen las conversaciones
   useEffect(() => {
@@ -330,15 +327,15 @@ export default function MessagesPage() {
 
   return (
     <PageTemplate>
-      <Card padding="none" className="h-[calc(100vh-200px)] overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-3 h-full">
+      <Card padding="none" className="overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-3 h-[calc(100vh-180px)] md:h-[calc(100vh-160px)]">
           {/* Lista de chats */}
           <div
-            className={`border-r border-gray-200 dark:border-gray-700 flex flex-col ${
+            className={`border-r border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden ${
               selectedChat ? 'hidden md:flex' : 'flex'
             }`}
           >
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Mensajes</h2>
                 {isConnected && (
@@ -397,11 +394,11 @@ export default function MessagesPage() {
 
           {/* Panel de conversación */}
           <div
-            className={`md:col-span-2 flex flex-col ${selectedChat ? 'flex' : 'hidden md:flex'}`}
+            className={`md:col-span-2 flex flex-col overflow-hidden ${selectedChat ? 'flex' : 'hidden md:flex'}`}
           >
             {selectedChat ? (
               <>
-                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
                   <div className="flex items-center space-x-3">
                     <button
                       onClick={handleBackToList}
@@ -479,7 +476,7 @@ export default function MessagesPage() {
 
                 <form
                   onSubmit={handleSendMessage}
-                  className="p-4 border-t border-gray-200 dark:border-gray-700"
+                  className="p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0"
                 >
                   <div className="relative">
                     <input
