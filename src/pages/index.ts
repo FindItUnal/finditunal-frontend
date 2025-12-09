@@ -9,3 +9,4 @@ export { default as ObjectDetailPage } from './ObjectDetailPage';
 export { default as AdminDashboardPage } from './AdminDashboardPage';
 export { default as AdminUsersPage } from './AdminUsersPage';
 export { default as AdminReportsPage } from './AdminReportsPage';
+export { default as AdminPublicationsPage } from './AdminPublicationsPage';

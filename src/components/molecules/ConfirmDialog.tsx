@@ -1,11 +1,12 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
+import { ReactNode } from 'react';
 
 interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title?: string;
-  description?: string;
+  description?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm?: () => void;
