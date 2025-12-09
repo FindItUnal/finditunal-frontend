@@ -270,13 +270,13 @@ export default function AdminDashboardPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         <div className="lg:col-span-2">
-          <Card>
+          <Card className="h-auto">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
               Actividad Reciente
             </h2>
-            <div className="space-y-4">
+            <div className="space-y-4 max-h-[500px] overflow-y-auto">
               {activitiesLoading && activities.length === 0 ? (
                 <>
                   <ActivitySkeleton />
@@ -338,7 +338,7 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="space-y-6">
-          <Card>
+          <Card className="h-auto">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               Acciones Rápidas
             </h2>
@@ -372,7 +372,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          <Card>
+          <Card className="h-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                 Estadísticas del Mes

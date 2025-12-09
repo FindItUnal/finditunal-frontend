@@ -181,7 +181,10 @@ export async function updateComplaintStatus(
   return apiFetch<ComplaintActionResponse>(`/user/admin/complaints/${complaintId}`, {
     baseUrl: apiUrl,
     method: 'PATCH',
-    body: input,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input),
   });
 }
 
@@ -199,7 +202,10 @@ export async function discardComplaint(
   return apiFetch<ComplaintActionResponse>(`/user/admin/complaints/${complaintId}/discard`, {
     baseUrl: apiUrl,
     method: 'PATCH',
-    body: { admin_notes: adminNotes },
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ admin_notes: adminNotes }),
   });
 }
 
@@ -217,7 +223,10 @@ export async function resolveComplaintAndDelete(
   return apiFetch<ComplaintActionResponse>(`/user/admin/complaints/${complaintId}/resolve`, {
     baseUrl: apiUrl,
     method: 'PATCH',
-    body: { admin_notes: adminNotes },
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ admin_notes: adminNotes }),
   });
 }
 

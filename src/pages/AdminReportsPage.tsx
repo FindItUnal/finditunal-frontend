@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { 
   AlertCircle, 
   CheckCircle, 
@@ -9,14 +9,21 @@ import {
   Loader2,
   Eye,
   Trash2,
-  FileText
+  FileText,
+  MapPin,
+  Package,
+  User
 } from 'lucide-react';
 import ConfirmDialog from '../components/molecules/ConfirmDialog';
 import { PageTemplate } from '../components/templates';
 import BackButton from '../components/atoms/BackButton';
 import { Card, Badge } from '../components/atoms';
-import { ComplaintRecord, ComplaintStatus, ComplaintReason } from '../types';
+import { ComplaintRecord, ComplaintStatus, ComplaintReason, Item } from '../types';
 import { useAdminComplaints } from '../hooks';
+import { objectService, mapBackendObjectToItem } from '../services';
+import useGlobalStore from '../store/useGlobalStore';
+import useUserStore from '../store/useUserStore';
+import { getUserId } from '../utils/userUtils';
 
 // Mapeo de razones a texto legible
 const reasonLabels: Record<ComplaintReason, string> = {
@@ -74,7 +81,12 @@ export default function AdminReportsPage() {
     totalCount,
   } = useAdminComplaints();
 
+  const apiUrl = useGlobalStore((s) => s.apiUrl);
+  const user = useUserStore((s) => s.user);
+
   const [selectedComplaint, setSelectedComplaint] = useState<ComplaintRecord | null>(null);
+  const [reportedItem, setReportedItem] = useState<Item | null>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
   const [confirmAction, setConfirmAction] = useState<'discard' | 'resolve' | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<ComplaintRecord | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
@@ -92,13 +104,31 @@ export default function AdminReportsPage() {
     }
   };
 
-  const handleSelect = useCallback((complaint: ComplaintRecord) => {
+  const handleSelect = useCallback(async (complaint: ComplaintRecord) => {
     if (selectedComplaint?.complaint_id === complaint.complaint_id) {
       setSelectedComplaint(null);
+      setReportedItem(null);
     } else {
       setSelectedComplaint(complaint);
+      setReportedItem(null);
+      setLoadingReport(true);
+      
+      // Cargar información del reporte denunciado
+      try {
+        if (user) {
+          const userId = getUserId(user);
+          const backendObject = await objectService.getObjectById(apiUrl, userId, complaint.report_id);
+          const item = mapBackendObjectToItem(backendObject, apiUrl, userId);
+          setReportedItem(item);
+        }
+      } catch (err) {
+        console.error('Error al cargar el reporte denunciado:', err);
+        setReportedItem(null);
+      } finally {
+        setLoadingReport(false);
+      }
     }
-  }, [selectedComplaint]);
+  }, [selectedComplaint, apiUrl, user]);
 
   const handleMarkInReview = async (complaint: ComplaintRecord, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -131,6 +161,7 @@ export default function AdminReportsPage() {
       // Actualizar selected si es la misma
       if (selectedComplaint?.complaint_id === confirmTarget.complaint_id) {
         setSelectedComplaint(null);
+        setReportedItem(null);
       }
     }
 
@@ -305,129 +336,147 @@ export default function AdminReportsPage() {
 
                 {/* Panel expandido con detalles */}
                 {selectedComplaint?.complaint_id === complaint.complaint_id && (
-                  <div className="p-6 bg-gray-50 dark:bg-gray-900">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-md overflow-hidden p-6">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Información de la denuncia */}
-                        <div>
-                          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                            <FileText className="w-5 h-5" />
-                            Detalles de la Denuncia
-                          </h4>
-                          <div className="space-y-3">
-                            <div>
-                              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">ID de Denuncia</p>
-                              <p className="text-gray-900 dark:text-white">#{complaint.complaint_id}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Motivo</p>
-                              <p className="text-gray-900 dark:text-white">{reasonLabels[complaint.reason]}</p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Descripción</p>
-                              <p className="text-gray-900 dark:text-white">
-                                {complaint.description || 'Sin descripción adicional'}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Fecha de creación</p>
-                              <p className="text-gray-900 dark:text-white">
-                                {new Date(complaint.created_at).toLocaleString('es-ES')}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Estado</p>
+                  <div className="p-4 bg-gray-50 dark:bg-gray-900 flex justify-center">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden max-w-4xl w-full border border-gray-200 dark:border-gray-700">
+                      
+                      {loadingReport ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="w-8 h-8 animate-spin text-teal-600" />
+                          <span className="ml-3 text-gray-600 dark:text-gray-400">Cargando publicación...</span>
+                        </div>
+                      ) : reportedItem ? (
+                        <div className="flex flex-col md:flex-row">
+                          {/* Imagen - Lado izquierdo */}
+                          <div className="w-full md:w-2/5 bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+                            {reportedItem.imageUrl ? (
+                              <div className="w-full aspect-square md:aspect-[4/5] overflow-hidden">
+                                <img 
+                                  src={reportedItem.imageUrl} 
+                                  alt={reportedItem.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-full aspect-square md:aspect-[4/5] flex items-center justify-center bg-gray-200 dark:bg-gray-700">
+                                <div className="text-center text-gray-500 dark:text-gray-400">
+                                  <Package className="w-12 h-12 mx-auto mb-2" />
+                                  <p className="text-sm">Sin imagen</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Información - Lado derecho */}
+                          <div className="w-full md:w-3/5 p-5 flex flex-col">
+                            {/* Título y Estado */}
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <h2 className="text-xl font-bold text-gray-900 dark:text-white">{reportedItem.title}</h2>
                               <Badge variant={getStatusBadgeVariant(complaint.status)}>
                                 {statusLabels[complaint.status]}
                               </Badge>
                             </div>
-                          </div>
-                        </div>
-
-                        {/* Información del reporte y resolución */}
-                        <div>
-                          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                            <AlertCircle className="w-5 h-5" />
-                            Información Adicional
-                          </h4>
-                          <div className="space-y-3">
-                            <div>
-                              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Reporte Denunciado</p>
-                              <p className="text-gray-900 dark:text-white">#{complaint.report_id}</p>
+                            
+                            {/* Publicación relacionada */}
+                            <div className="mb-3">
+                              <span className="inline-block bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs px-2 py-1 rounded-full">
+                                Publicación relacionada
+                              </span>
+                              <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">ID: {complaint.report_id}</p>
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">ID del Denunciante</p>
-                              <p className="text-gray-900 dark:text-white text-sm font-mono">
-                                {complaint.reporter_user_id}
-                              </p>
-                            </div>
-                            {complaint.admin_notes && (
+                            
+                            <p className="text-gray-600 dark:text-gray-300 text-xs mb-4">
+                              Aquí puedes ver la información completa de la publicación relacionada con este reporte.
+                            </p>
+                            
+                            {/* Detalles */}
+                            <div className="grid grid-cols-2 gap-3 flex-1 text-sm">
                               <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Notas del Admin</p>
-                                <p className="text-gray-900 dark:text-white">{complaint.admin_notes}</p>
+                                <p className="text-gray-500 dark:text-gray-500 text-xs">Ubicación</p>
+                                <p className="text-gray-900 dark:text-white text-sm">{reportedItem.location}</p>
                               </div>
-                            )}
-                            {complaint.resolved_by && (
+                              
                               <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Resuelto por</p>
-                                <p className="text-gray-900 dark:text-white text-sm font-mono">
-                                  {complaint.resolved_by}
+                                <p className="text-gray-500 dark:text-gray-500 text-xs">Fecha</p>
+                                <p className="text-gray-900 dark:text-white text-sm">
+                                  {new Date(reportedItem.date).toLocaleDateString('es-ES', {
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric'
+                                  })}
                                 </p>
                               </div>
-                            )}
-                            {complaint.resolved_at && (
+                              
                               <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Fecha de resolución</p>
-                                <p className="text-gray-900 dark:text-white">
-                                  {new Date(complaint.resolved_at).toLocaleString('es-ES')}
-                                </p>
+                                <p className="text-gray-500 dark:text-gray-500 text-xs">Reportado por</p>
+                                <p className="text-gray-900 dark:text-white text-sm">{reportedItem.userName || 'Usuario'}</p>
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Acciones en el panel expandido */}
-                      <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 flex flex-wrap justify-end gap-2">
-                        {(complaint.status === 'pending' || complaint.status === 'in_review') && (
-                          <>
-                            {complaint.status === 'pending' && (
-                              <button 
-                                onClick={(e) => handleMarkInReview(complaint, e)}
-                                disabled={actionLoading === complaint.complaint_id}
-                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2"
-                              >
-                                {actionLoading === complaint.complaint_id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <Eye className="w-4 h-4" />
+                              
+                              <div className="col-span-2">
+                                <p className="text-gray-500 dark:text-gray-500 text-xs">Descripción del reporte</p>
+                                <p className="text-gray-900 dark:text-white text-sm line-clamp-2">{complaint.description || 'Sin descripción adicional'}</p>
+                              </div>
+                            </div>
+                            
+                            {/* Botones - Solo mostrar si la denuncia no está resuelta */}
+                            {(complaint.status === 'pending' || complaint.status === 'in_review') && (
+                              <div className="flex flex-wrap justify-end gap-2 mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                {complaint.status === 'pending' && (
+                                  <button 
+                                    onClick={(e) => handleMarkInReview(complaint, e)}
+                                    disabled={actionLoading === complaint.complaint_id}
+                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    {actionLoading === complaint.complaint_id ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Eye className="w-3 h-3" />
+                                    )}
+                                    En revisión
+                                  </button>
                                 )}
-                                Marcar en revisión
-                              </button>
+                                <button 
+                                  onClick={() => openConfirmDialog('discard', complaint)}
+                                  disabled={actionLoading === complaint.complaint_id}
+                                  className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-medium disabled:opacity-50"
+                                >
+                                  Descartar
+                                </button>
+                                <button 
+                                  onClick={() => openConfirmDialog('resolve', complaint)}
+                                  disabled={actionLoading === complaint.complaint_id}
+                                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-medium disabled:opacity-50"
+                                >
+                                  Eliminar reporte
+                                </button>
+                                <button 
+                                  onClick={() => { setSelectedComplaint(null); setReportedItem(null); }} 
+                                  className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-white rounded-lg text-xs font-medium border border-gray-300 dark:border-gray-600"
+                                >
+                                  Cerrar
+                                </button>
+                              </div>
                             )}
-                            <button 
-                              onClick={() => openConfirmDialog('discard', complaint)}
-                              disabled={actionLoading === complaint.complaint_id}
-                              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-                            >
-                              Descartar
-                            </button>
-                            <button 
-                              onClick={() => openConfirmDialog('resolve', complaint)}
-                              disabled={actionLoading === complaint.complaint_id}
-                              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-                            >
-                              Resolver y eliminar reporte
-                            </button>
-                          </>
-                        )}
-                        <button 
-                          onClick={() => setSelectedComplaint(null)} 
-                          className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
-                        >
-                          Cerrar
-                        </button>
-                      </div>
+                            
+                            {/* Solo botón cerrar si la denuncia ya está resuelta */}
+                            {(complaint.status === 'resolved' || complaint.status === 'rejected') && (
+                              <div className="flex justify-end mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                                <button 
+                                  onClick={() => { setSelectedComplaint(null); setReportedItem(null); }} 
+                                  className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-white rounded-lg text-xs font-medium border border-gray-300 dark:border-gray-600"
+                                >
+                                  Cerrar
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                          <AlertCircle className="w-10 h-10 mx-auto mb-2" />
+                          <p className="text-sm">No se pudo cargar la información de la publicación</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500">Es posible que haya sido eliminada</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -456,7 +505,8 @@ export default function AdminReportsPage() {
       <ConfirmDialog
         open={confirmAction === 'discard'}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && confirmAction === 'discard') {
+            // Solo limpiar si se cierra manualmente (cancelar o X)
             setConfirmAction(null);
             setConfirmTarget(null);
             setAdminNotes('');
@@ -489,7 +539,8 @@ export default function AdminReportsPage() {
       <ConfirmDialog
         open={confirmAction === 'resolve'}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && confirmAction === 'resolve') {
+            // Solo limpiar si se cierra manualmente (cancelar o X)
             setConfirmAction(null);
             setConfirmTarget(null);
             setAdminNotes('');

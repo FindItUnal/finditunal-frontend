@@ -42,8 +42,8 @@ export default function ConfirmDialog({
               <button className="px-4 py-2 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">{cancelLabel}</button>
             </Dialog.Close>
             <button
-              onClick={() => {
-                if (onConfirm) onConfirm();
+              onClick={async () => {
+                if (onConfirm) await onConfirm();
                 onOpenChange(false);
               }}
               className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white"
