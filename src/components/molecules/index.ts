@@ -2,15 +2,23 @@ export { default as ItemInfo } from './ItemInfo';
 export { default as UserInfo } from './UserInfo';
 export { default as SearchBar } from './SearchBar';
 export { default as CategoryFilter } from './CategoryFilter';
+export { default as StatusFilter } from './StatusFilter';
+export { default as LocationFilter } from './LocationFilter';
 export { default as RadioGroup } from './RadioGroup';
 export { default as ImageUpload } from './ImageUpload';
-
 export { default as NotificationsButton } from './NotificationsButton';
+export { default as ConfirmDialog } from './ConfirmDialog';
+export { default as ReportDialog } from './ReportDialog';
+export { default as AdminOrReport } from './AdminOrReport';
+export { default as ProfileInfo } from './ProfileInfo';
 
 export type { ItemInfoProps } from './ItemInfo';
 export type { UserInfoProps } from './UserInfo';
 export type { SearchBarProps } from './SearchBar';
 export type { CategoryFilterProps } from './CategoryFilter';
+export type { StatusFilterProps } from './StatusFilter';
+export type { LocationFilterProps } from './LocationFilter';
 export type { RadioGroupProps } from './RadioGroup';
 export type { ImageUploadProps } from './ImageUpload';
 export type { NotificationsButtonProps } from './NotificationsButton';
+export type { ProfileInfoProps } from './ProfileInfo';

@@ -7,6 +7,9 @@ export { default as IconButton } from './IconButton';
 export { default as Card } from './Card';
 export { default as Logo } from './Logo';
 export { default as Avatar } from './Avatar';
+export { default as LoadingSpinner } from './LoadingSpinner';
+export { default as ThemeToggle } from './ThemeToggle';
+export { default as BackButton } from './BackButton';
 
 export type { ButtonProps } from './Button';
 export type { InputProps } from './Input';
@@ -17,3 +20,4 @@ export type { IconButtonProps } from './IconButton';
 export type { CardProps } from './Card';
 export type { LogoProps } from './Logo';
 export type { AvatarProps } from './Avatar';
+export type { LoadingSpinnerProps } from './LoadingSpinner';

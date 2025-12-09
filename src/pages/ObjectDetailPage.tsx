@@ -1,35 +1,50 @@
-import { MapPin, Calendar, User, MessageCircle, Trash2 } from 'lucide-react';
+import { MapPin, Calendar, User, MessageCircle, Trash2, Flag, Edit2, Phone } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PageTemplate } from '../components/templates';
 import ReportDialog from '../components/molecules/ReportDialog';
-import BackButton from '../components/atoms/BackButton';
-import { Button, Badge } from '../components/atoms';
+import { Button, Badge, BackButton, LoadingSpinner } from '../components/atoms';
+import { useToast } from '../context/ToastContext';
 import useUserStore from '../store/useUserStore';
 import ConfirmDialog from '../components/molecules/ConfirmDialog';
+import { useObjectById, useComplaintMutation } from '../hooks';
+import PublishModal from '../components/organisms/PublishModal';
+import { useCategories, useLocations, useReportMutations } from '../hooks';
+import { useConversationExists, useCreateConversation } from '../hooks/useConversations';
+import { formatDate } from '../utils/dateUtils';
+import { EmptyState } from '../components/organisms';
 
 export default function ObjectDetailPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const { id } = useParams();
   const [reportOpen, setReportOpen] = useState(false);
   const user = useUserStore((s) => s.user);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [createConversationOpen, setCreateConversationOpen] = useState(false);
+  const { data: categories = [] } = useCategories();
+  const { data: locations = [] } = useLocations();
+  const { handlePublish, deleteReport, isPending: isPublishing } = useReportMutations();
 
-  // Datos simulados del objeto (usa el id de la ruta si está presente)
-  const object = {
-    id: id ?? '1',
-    title: 'Cargador de Laptop HP',
-    category: 'Electrónicos',
-    location: 'Edificio 401 - Aula 301',
-    date: '15 de Enero, 2025',
-    image:
-      'https://images.unsplash.com/photo-1625948515291-69613efd103f?w=800&h=600&fit=crop',
-    status: 'found' as const,
-    description:
-      'Cargador original de laptop HP de 65W. Cable en buen estado, sin daños visibles. Conector rectangular. Lo encontré en el escritorio del aula 301 del edificio 401 al finalizar la clase de Cálculo Diferencial.',
-    reportedBy: 'María González',
-    reportedDate: 'Hace 2 días',
-  };
+  // Usar hook de TanStack Query para cargar el objeto
+  const { data: object, isLoading, error } = useObjectById(id);
+  
+  // Hook para denuncias
+  const { submitComplaint } = useComplaintMutation();
+
+  // Verificar si es el dueño del objeto
+  const isOwner = !!(user && object && user.id === object.userId);
+
+  // Hooks para conversaciones
+  const reportId = object?.id ? parseInt(object.id, 10) : null;
+  const { data: conversationExists, isLoading: checkingConversation } = useConversationExists(
+    reportId,
+    !isOwner && !!reportId // Verificar automáticamente solo si no es el dueño
+  );
+  const createConversation = useCreateConversation();
+
+  console.log('Cargando objeto con ID:', id, object);
 
   const statusConfig = {
     found: {
@@ -46,6 +61,93 @@ export default function ObjectDetailPage() {
     },
   };
 
+  // Formatear fecha para mostrar
+  const formattedDate = object?.date ? formatDate(object.date) : '';
+
+  if (isLoading) {
+    return (
+      <PageTemplate>
+        <BackButton to="/dashboard">Volver a explorar</BackButton>
+        <LoadingSpinner message="Cargando objeto..." />
+      </PageTemplate>
+    );
+  }
+
+  if (error || !object) {
+    return (
+      <PageTemplate>
+        <BackButton to="/dashboard">Volver a explorar</BackButton>
+        <EmptyState
+          title={error instanceof Error ? error.message : 'Objeto no encontrado'}
+          description={error ? 'Intenta recargar la página' : 'El objeto que buscas no existe o ha sido eliminado'}
+        />
+      </PageTemplate>
+    );
+  }
+
+  const handlePublishSubmit = async (payload: {
+    title: string;
+    description: string;
+    category: string;
+    location: string;
+    type: 'found' | 'lost';
+    found_date: string;
+    contact_method: string;
+    image?: File;
+    reportId?: string;
+  }) => {
+    try {
+      await handlePublish(payload, categories, locations);
+      setPublishOpen(false);
+      toast.success(payload.reportId ? 'Publicación actualizada exitosamente' : 'Publicación creada exitosamente');
+    } catch (err) {
+      console.error('Error al guardar publicación desde detalle:', err);
+      toast.error(err instanceof Error ? err.message : 'Error al guardar la publicación');
+    }
+  };
+
+  const handleOwnerDelete = async () => {
+    if (!object) return;
+    try {
+      const reportId = parseInt(object.id, 10);
+      await deleteReport.mutateAsync(reportId);
+      setConfirmOpen(false);
+      toast.success('Publicación eliminada exitosamente');
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Error al eliminar desde detalle:', err);
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar la publicación');
+    }
+  };
+
+  const handleContactClick = async () => {
+    if (!reportId || !user) return;
+
+    // Si ya existe conversación, navegar directamente a mensajes
+    if (conversationExists?.exists) {
+      navigate('/messages');
+    } else {
+      // Si no existe, mostrar diálogo de confirmación
+      setCreateConversationOpen(true);
+    }
+  };
+
+  const handleCreateConversation = async () => {
+    if (!reportId) return;
+
+    try {
+      const newConversation = await createConversation.mutateAsync(reportId);
+      setCreateConversationOpen(false);
+      toast.success('Conversación creada exitosamente');
+      navigate(`/messages/${newConversation.conversation_id}`);
+    } catch (err) {
+      console.error('Error al crear conversación:', err);
+      toast.error(
+        err instanceof Error ? err.message : 'Error al crear la conversación'
+      );
+    }
+  };
+
   return (
     <PageTemplate>
       <BackButton to="/dashboard">Volver a explorar</BackButton>
@@ -55,11 +157,17 @@ export default function ObjectDetailPage() {
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl">
             <div className="relative aspect-[4/3] bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-xl">
-              <img
-                src={object.image}
-                alt={object.title}
-                className="w-full h-full object-cover"
-              />
+              {object.imageUrl ? (
+                <img
+                  src={object.imageUrl}
+                  alt={object.title}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <p className="text-gray-400 dark:text-gray-500">Sin imagen</p>
+                </div>
+              )}
               <div className="absolute top-3 right-3">
                 <Badge variant={statusConfig[object.status].variant}>
                   {statusConfig[object.status].label}
@@ -92,22 +200,33 @@ export default function ObjectDetailPage() {
                 <Calendar className="h-5 w-5 text-teal-600 dark:text-teal-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="font-medium text-gray-700 dark:text-gray-200">Fecha</p>
-                  <p className="text-gray-600 dark:text-gray-400">{object.date}</p>
+                  <p className="text-gray-600 dark:text-gray-400">{formattedDate}</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                <User className="h-5 w-5 text-teal-600 dark:text-teal-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-medium text-gray-700 dark:text-gray-200">
-                    Reportado por
-                  </p>
-                  <p className="text-gray-600 dark:text-gray-400">{object.reportedBy}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {object.reportedDate}
-                  </p>
+              {object.userName && (
+                <div className="flex items-start gap-3">
+                  <User className="h-5 w-5 text-teal-600 dark:text-teal-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-700 dark:text-gray-200">
+                      Reportado por
+                    </p>
+                    <p className="text-gray-600 dark:text-gray-400">{object.userName}</p>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {object.contact_method && (
+                <div className="flex items-start gap-3">
+                  <Phone className="h-5 w-5 text-teal-600 dark:text-teal-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-700 dark:text-gray-200">
+                      Método de contacto
+                    </p>
+                    <p className="text-gray-600 dark:text-gray-400">{object.contact_method}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -117,58 +236,149 @@ export default function ObjectDetailPage() {
                 Descripción
               </h2>
               <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-sm">
-                {object.description}
+                {object.description || 'Sin descripción disponible'}
               </p>
             </div>
           </div>
 
           <div className="flex gap-3">
-              <Button
-                variant="primary"
-                icon={MessageCircle}
-                onClick={() => navigate('/messages')}
-                className="flex-1"
-              >
-                Contactar
-              </Button>
-              {user?.role === 'admin' ? (
-                <>
-                  <button
-                    onClick={() => setConfirmOpen(true)}
-                    className="border rounded-lg px-4 py-3 text-sm border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 transition transform duration-150 ease-in-out hover:shadow-lg hover:border-gray-400 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-600" /> Eliminar
-                  </button>
-                  <ConfirmDialog
-                    open={confirmOpen}
-                    onOpenChange={setConfirmOpen}
-                    title="Eliminar publicación"
-                    description="¿Deseas eliminar esta publicación? Esta acción no se puede deshacer."
-                    confirmLabel="Eliminar"
-                    cancelLabel="Cancelar"
-                    onConfirm={() => {
-                      alert(`Eliminar objeto ${object.id}`);
-                      setConfirmOpen(false);
-                      navigate('/dashboard');
-                    }}
-                  />
-                </>
-              ) : (
-                <button
-                  onClick={() => setReportOpen(true)}
-                  className="border rounded-lg px-4 py-3 text-sm border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 transition transform duration-150 ease-in-out hover:shadow-lg hover:border-gray-400 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+            {isOwner ? (
+              <>
+                <Button
+                  variant="primary"
+                  icon={Edit2}
+                  onClick={() => setPublishOpen(true)}
+                  className="flex-1"
                 >
-                  Denunciar
-                </button>
-              )}
+                  Editar
+                </Button>
+                <Button
+                  variant="outline"
+                  icon={Trash2}
+                  onClick={() => setConfirmOpen(true)}
+                >
+                  Eliminar
+                </Button>
+                <ConfirmDialog
+                  open={confirmOpen}
+                  onOpenChange={setConfirmOpen}
+                  title="Eliminar publicación"
+                  description="¿Deseas eliminar esta publicación? Esta acción no se puede deshacer."
+                  confirmLabel="Eliminar"
+                  cancelLabel="Cancelar"
+                  onConfirm={handleOwnerDelete}
+                />
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="primary"
+                  icon={MessageCircle}
+                  onClick={handleContactClick}
+                  className="flex-1"
+                  disabled={checkingConversation}
+                >
+                  {checkingConversation 
+                    ? 'Verificando...' 
+                    : conversationExists?.exists 
+                      ? 'Enviar mensaje' 
+                      : 'Contactar'
+                  }
+                </Button>
+                {user?.role === 'admin' ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      icon={Trash2}
+                      onClick={() => setConfirmOpen(true)}
+                    >
+                      Eliminar
+                    </Button>
+                    <ConfirmDialog
+                      open={confirmOpen}
+                      onOpenChange={setConfirmOpen}
+                      title="Eliminar publicación"
+                      description="¿Deseas eliminar esta publicación? Esta acción no se puede deshacer."
+                      confirmLabel="Eliminar"
+                      cancelLabel="Cancelar"
+                      onConfirm={handleOwnerDelete}
+                    />
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    icon={Flag}
+                    onClick={() => setReportOpen(true)}
+                  >
+                    Denunciar
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>
 
+      <PublishModal
+        open={publishOpen}
+        onOpenChange={(open) => setPublishOpen(open)}
+        categories={categories}
+        locations={locations}
+        initialData={object ? {
+          id: object.id,
+          title: object.title,
+          description: object.description,
+          category: object.category,
+          location: object.location,
+          type: object.status === 'found' ? 'found' : 'lost',
+          found_date: object.date,
+          imageUrl: object.imageUrl,
+          contact_method: object.contact_method || '',
+        } : undefined}
+        onPublish={handlePublishSubmit}
+        submitLabel="Guardar cambios"
+        isLoading={isPublishing}
+      />
+
+      <ConfirmDialog
+        open={createConversationOpen && !conversationExists?.exists}
+        onOpenChange={setCreateConversationOpen}
+        title="Iniciar conversación"
+        description={`¿Deseas iniciar una conversación sobre "${object?.title}"?`}
+        confirmLabel="Crear conversación"
+        cancelLabel="Cancelar"
+        onConfirm={handleCreateConversation}
+      />
+
       <ReportDialog
         open={reportOpen}
         onOpenChange={setReportOpen}
-        onReport={(payload) => alert(`Reporte enviado: ${JSON.stringify(payload)}`)}
+        onReport={async (payload) => {
+          if (!object) return;
+          
+          try {
+            const reportId = parseInt(object.id, 10);
+            if (isNaN(reportId)) {
+              toast.error('ID de publicación inválido');
+              return;
+            }
+            
+            await submitComplaint.mutateAsync({
+              reportId,
+              payload,
+            });
+            
+            toast.success('Denuncia enviada correctamente');
+            setReportOpen(false);
+          } catch (err) {
+            console.error('Error al enviar denuncia:', err);
+            toast.error(
+              err instanceof Error 
+                ? err.message 
+                : 'Error al enviar la denuncia. Por favor, intenta nuevamente.'
+            );
+          }
+        }}
       />
     </PageTemplate>
   );

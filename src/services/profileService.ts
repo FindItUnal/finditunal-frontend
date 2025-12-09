@@ -33,10 +33,22 @@ export const profileService = {
    * Obtiene el perfil del usuario autenticado
    */
   async getProfile(apiBase: string): Promise<UserProfile> {
-    return apiFetch<UserProfile>('/user/profile', {
+    const data = await apiFetch<any>('/user/profile', {
       method: 'GET',
       baseUrl: apiBase,
     });
+    
+    // Mapear created_at del backend a createdAt del frontend
+    return {
+      ...data,
+      id: data.user_id?.toString() || data.id || '',
+      createdAt: data.created_at 
+        ? (typeof data.created_at === 'string' ? data.created_at : new Date(data.created_at).toISOString())
+        : data.createdAt || new Date().toISOString(),
+      created_at: data.created_at 
+        ? (typeof data.created_at === 'string' ? data.created_at : new Date(data.created_at).toISOString())
+        : undefined,
+    } as UserProfile;
   },
 
   /**

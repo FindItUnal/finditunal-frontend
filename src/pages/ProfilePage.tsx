@@ -1,55 +1,107 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from 'lucide-react';
 import { PageTemplate } from '../components/templates';
 import PublishModal from '../components/organisms/PublishModal';
+import ProfileEditor from '../components/organisms/ProfileEditor';
 import ConfirmDialog from '../components/molecules/ConfirmDialog';
+import ProfileInfo from '../components/molecules/ProfileInfo';
 import PublicationsList from '../components/organisms/PublicationsList';
-// user data accessed inside ProfileInfo via the store
+import { LoadingSpinner } from '../components/atoms';
 import { Item } from '../types';
-import ProfileInfo from '../components/ProfileInfo';
-import ProfileEditor from '../components/ProfileEditor';
-import { useProfile } from '../hooks/useProfile';
-
-const initialMockUserItems: Item[] = [
-  {
-    id: '1',
-    title: 'Audífonos Sony',
-    description: 'Encontrados en el laboratorio de cómputo',
-    category: 'Electrónicos',
-    imageUrl: 'https://images.pexels.com/photos/3394650/pexels-photo-3394650.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Laboratorio 3',
-    date: '2025-10-15',
-    status: 'found',
-    userId: '1',
-    userName: 'Usuario Demo',
-    createdAt: '2025-10-15T10:00:00Z',
-  },
-  {
-    id: '2',
-    title: 'Cuaderno de Matemáticas',
-    description: 'Cuaderno con apuntes de cálculo',
-    category: 'Libros',
-    imageUrl: 'https://images.pexels.com/photos/1329711/pexels-photo-1329711.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Aula 201',
-    date: '2025-10-12',
-    status: 'claimed',
-    userId: '1',
-    userName: 'Usuario Demo',
-    createdAt: '2025-10-12T14:30:00Z',
-  },
-];
+import { useProfile, useCategories, useLocations, useUserReports, useReportMutations } from '../hooks';
+import { useToast } from '../context/ToastContext';
+import useUserStore from '../store/useUserStore';
+import useGlobalStore from '../store/useGlobalStore';
 
 export default function ProfilePage() {
-  // user is accessed inside ProfileInfo via the store
   const navigate = useNavigate();
-  const [userItems, setUserItems] = useState<Item[]>(initialMockUserItems);
+  const toast = useToast();
+  const user = useUserStore((s) => s.user);
+  const apiUrl = useGlobalStore((s) => s.apiUrl);
   const [publishOpen, setPublishOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toDeleteId, setToDeleteId] = useState<string | null>(null);
 
   const { isEditing } = useProfile();
+  const refreshUser = useUserStore((s) => s.refreshUser);
+  const hasLoadedProfile = useRef(false);
+
+  // Usar hooks de TanStack Query
+  const { data: categories = [] } = useCategories();
+  const { data: locations = [] } = useLocations();
+  const { data: userItems = [], isLoading, error } = useUserReports();
+  const { handlePublish, deleteReport, markAsDelivered, isPending: isPublishing } = useReportMutations();
+
+  // Cargar perfil del usuario desde el backend al montar
+  useEffect(() => {
+    if (hasLoadedProfile.current) return;
+    if (!user) return;
+    
+    hasLoadedProfile.current = true;
+    refreshUser(apiUrl).catch((err) => {
+      console.error('Error al cargar perfil:', err);
+    });
+  }, [apiUrl, refreshUser, user]);
+
+  const handlePublishSubmit = async (payload: {
+    title: string;
+    description: string;
+    category: string;
+    location: string;
+    type: 'found' | 'lost';
+    found_date: string;
+    contact_method: string;
+    image?: File;
+    reportId?: string;
+  }) => {
+    try {
+      // Si estamos editando, asegurar que el reportId esté en el payload
+      const finalPayload = editingItem && !payload.reportId
+        ? { ...payload, reportId: editingItem.id }
+        : payload;
+      await handlePublish(finalPayload, categories, locations);
+      setPublishOpen(false);
+      setEditingItem(null);
+      toast.success(editingItem ? 'Publicación actualizada exitosamente' : 'Publicación creada exitosamente');
+    } catch (err) {
+      console.error('Error al guardar publicación:', err);
+      toast.error(err instanceof Error ? err.message : 'Error al guardar la publicación');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!toDeleteId || !user) return;
+
+    try {
+      const reportId = parseInt(toDeleteId, 10);
+      await deleteReport.mutateAsync(reportId);
+      setToDeleteId(null);
+      setConfirmOpen(false);
+      toast.success('Publicación eliminada exitosamente');
+    } catch (err) {
+      console.error('Error al eliminar publicación:', err);
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar la publicación');
+    }
+  };
+
+  const handleMarkAsDelivered = async (id: string) => {
+    if (!user) return;
+
+    try {
+      const reportId = parseInt(id, 10);
+      if (isNaN(reportId)) {
+        toast.error('ID de publicación inválido');
+        return;
+      }
+      await markAsDelivered.mutateAsync(reportId);
+      toast.success('Objeto marcado como entregado exitosamente');
+    } catch (err) {
+      console.error('Error al marcar como entregado:', err);
+      toast.error(err instanceof Error ? err.message : 'Error al marcar como entregado');
+    }
+  };
 
   return (
     <PageTemplate>
@@ -71,14 +123,23 @@ export default function ProfilePage() {
                   <span className="font-bold text-gray-900 dark:text-white">{userItems.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Objetos Entregado</span>
+                  <span className="text-gray-600 dark:text-gray-400">Objetos encontrados</span>
                   <span className="font-bold text-gray-900 dark:text-white">
-                    {userItems.filter((item) => item.status === 'claimed').length}
+                    {userItems.filter((item) => item.status === 'found').length}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Miembro desde</span>
-                  <span className="font-bold text-gray-900 dark:text-white">Oct 2025</span>
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {user?.createdAt
+                      ? (() => {
+                          const date = new Date(user.createdAt);
+                          const month = date.toLocaleDateString('es-ES', { month: 'short' });
+                          const year = date.getFullYear();
+                          return `${month.charAt(0).toUpperCase() + month.slice(1)} ${year}`;
+                        })()
+                      : '—'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -100,21 +161,30 @@ export default function ProfilePage() {
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md p-6 transition-colors">
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Mis Publicaciones</h3>
                 <div>
-                  <PublicationsList
-                    items={userItems}
-                    onEdit={(item) => {
-                      setEditingItem(item);
-                      setPublishOpen(true);
-                    }}
-                    onDelete={(id) => {
-                      setToDeleteId(id);
-                      setConfirmOpen(true);
-                    }}
-                    onGoDashboard={() => navigate('/dashboard')}
-                    onMarkClaimed={(id) => {
-                      setUserItems((prev) => prev.map((it) => (it.id === id ? { ...it, status: 'claimed' } : it)));
-                    }}
-                  />
+                  {isLoading ? (
+                    <LoadingSpinner message="Cargando publicaciones..." />
+                  ) : error ? (
+                    <div className="text-center py-12">
+                      <p className="text-red-600 dark:text-red-400 mb-2">Error al cargar publicaciones</p>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">
+                        {error instanceof Error ? error.message : 'Error desconocido'}
+                      </p>
+                    </div>
+                  ) : (
+                    <PublicationsList
+                      items={userItems}
+                      onEdit={(item) => {
+                        setEditingItem(item);
+                        setPublishOpen(true);
+                      }}
+                      onDelete={(id) => {
+                        setToDeleteId(id);
+                        setConfirmOpen(true);
+                      }}
+                      onGoDashboard={() => navigate('/dashboard')}
+                      onMarkClaimed={handleMarkAsDelivered}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -128,6 +198,8 @@ export default function ProfilePage() {
           setPublishOpen(open);
           if (!open) setEditingItem(null);
         }}
+        categories={categories}
+        locations={locations}
         initialData={
           editingItem
             ? {
@@ -139,28 +211,13 @@ export default function ProfilePage() {
                 type: editingItem.status === 'found' ? 'found' : 'lost',
                 found_date: editingItem.date,
                 imageUrl: editingItem.imageUrl,
+                contact_method: editingItem.contact_method || '',
               }
             : undefined
         }
-        submitLabel={editingItem ? 'Editar' : 'Publicar'}
-        onPublish={(payload) => {
-          if (!editingItem) return;
-          setUserItems((prev) =>
-            prev.map((it) =>
-              it.id === editingItem.id
-                ? {
-                    ...it,
-                    title: payload.title ?? it.title,
-                    description: payload.description ?? it.description,
-                    category: payload.category ?? it.category,
-                    location: payload.location ?? it.location,
-                    date: payload.found_date ?? it.date,
-                    imageUrl: payload.image_preview ?? it.imageUrl,
-                  }
-                : it
-            )
-          );
-        }}
+        onPublish={handlePublishSubmit}
+        submitLabel={editingItem ? 'Guardar cambios' : 'Publicar'}
+        isLoading={isPublishing}
       />
       <ConfirmDialog
         open={confirmOpen}
@@ -172,12 +229,7 @@ export default function ProfilePage() {
         description="¿Deseas eliminar esta publicación? Esta acción no se puede deshacer."
         confirmLabel="Eliminar"
         cancelLabel="Cancelar"
-        onConfirm={() => {
-          if (!toDeleteId) return;
-          setUserItems((prev) => prev.filter((it) => it.id !== toDeleteId));
-          setToDeleteId(null);
-          setConfirmOpen(false);
-        }}
+        onConfirm={handleDelete}
       />
     </PageTemplate>
   );

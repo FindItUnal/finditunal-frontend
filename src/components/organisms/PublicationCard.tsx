@@ -14,14 +14,26 @@ export default function PublicationCard({ item, onEdit, onDelete, onMarkClaimed 
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-all flex flex-col">
       <div className="flex flex-col md:flex-row gap-4 items-start">
         <div className="w-full md:w-24 h-48 md:h-24 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden flex-shrink-0">
-          <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+          {item.imageUrl ? (
+            <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 text-xs">
+              Sin imagen
+            </div>
+          )}
         </div>
 
         <div className="flex-1 min-w-0 mt-3 md:mt-0 md:ml-2">
           <div className="flex items-start justify-between mb-2">
             <h4 className="text-lg font-bold text-gray-900 dark:text-white">{item.title}</h4>
-            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${item.status === 'claimed' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300'}`}>
-              {item.status === 'claimed' ? 'Entregado' : 'Activo'}
+            <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+              item.status === 'claimed' 
+                ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' 
+                : item.status === 'found'
+                ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300'
+                : 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300'
+            }`}>
+              {item.status === 'claimed' ? 'Entregado' : item.status === 'found' ? 'Encontrado' : 'Perdido'}
             </span>
           </div>
 
@@ -42,7 +54,7 @@ export default function PublicationCard({ item, onEdit, onDelete, onMarkClaimed 
 
       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
         <div className="flex items-center">
-          {item.status === 'found' && (
+          {item.status !== 'claimed' && (
             <Button
               variant="primary"
               size="sm"
