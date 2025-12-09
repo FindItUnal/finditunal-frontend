@@ -9,7 +9,6 @@ import {
   AdminDashboardPage,
   AdminUsersPage,
   AdminReportsPage,
-  AdminPublicationsPage,
   AuthCallbackPage,
 } from '../pages';
 import Layout from '../components/templates/Layout';
@@ -87,14 +86,6 @@ export default function AppRoutes() {
           element={
             <PrivateRoute requireAdmin>
               <AdminReportsPage />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/admin/publications"
-          element={
-            <PrivateRoute requireAdmin>
-              <AdminPublicationsPage />
             </PrivateRoute>
           }
         />
