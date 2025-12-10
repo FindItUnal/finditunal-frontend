@@ -93,6 +93,41 @@
   scrollbar-color: #0d9488 transparent;
 }
 
+/* Activity list scrollbar (used in Admin Dashboard) */
+.activity-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.activity-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.activity-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(13,148,136,0.95), rgba(6,182,212,0.95));
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.activity-scroll::-webkit-scrollbar-thumb:hover {
+  filter: brightness(0.95);
+}
+
+.activity-scroll {
+  scrollbar-width: thin;
+  /* Fallback color for Firefox */
+  scrollbar-color: rgba(13,148,136,0.95) transparent;
+}
+
+.dark .activity-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(20,184,166,0.9), rgba(14,165,233,0.9));
+}
+
+.dark .activity-scroll {
+  scrollbar-color: rgba(20,184,166,0.9) transparent;
+}
+
 /* Hide number input spinners */
 .modal-scroll input[type=number]::-webkit-outer-spin-button,
 .modal-scroll input[type=number]::-webkit-inner-spin-button {

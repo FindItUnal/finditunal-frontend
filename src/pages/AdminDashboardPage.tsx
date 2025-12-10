@@ -276,7 +276,7 @@ export default function AdminDashboardPage() {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
               Actividad Reciente
             </h2>
-            <div className="space-y-4 max-h-[500px] overflow-y-auto">
+            <div className="space-y-4 max-h-[500px] overflow-y-auto activity-scroll">
               {activitiesLoading && activities.length === 0 ? (
                 <>
                   <ActivitySkeleton />

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { PageTemplate } from '../components/templates';
 import { Card } from '../components/atoms';
-import { MessageCircle, Send, ArrowLeft } from 'lucide-react';
+import { MessageCircle, Send, ArrowLeft, Check, CheckCheck } from 'lucide-react';
 import { Chat, Message } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useConversations, useMarkAsRead } from '../hooks/useConversations';
@@ -36,6 +36,7 @@ export default function MessagesPage() {
     markAsRead: socketMarkAsRead,
     onNewMessage,
     onNewNotification,
+    onConversationRead,
   } = useSocketIO();
 
   // Obtener conversaciones
@@ -258,6 +259,29 @@ export default function MessagesPage() {
 
     return cleanup;
   }, [onNewNotification, refetchConversations]);
+
+  // Listener para cuando el otro usuario marca la conversación como leída
+  useEffect(() => {
+    const cleanup = onConversationRead((data) => {
+      const readConversationId = data.conversation_id.toString();
+      const currentConversationId = previousConversationRef.current;
+
+      // Si es la conversación actual, marcar todos MIS mensajes como leídos
+      if (currentConversationId && readConversationId === currentConversationId) {
+        console.log('✓✓ Mensajes marcados como leídos por el otro usuario');
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.senderId === String(userId) ? { ...msg, read: true } : msg
+          )
+        );
+      }
+
+      // Actualizar la lista de conversaciones
+      refetchConversations();
+    });
+
+    return cleanup;
+  }, [onConversationRead, userId, refetchConversations]);
 
   // Cleanup al desmontar
   useEffect(() => {
@@ -484,16 +508,28 @@ export default function MessagesPage() {
                               <p className="text-sm break-words whitespace-pre-wrap">
                                 {message.content}
                               </p>
-                              <p
-                                className={`text-xs mt-1 ${
+                              <div
+                                className={`flex items-center justify-end gap-1 mt-1 ${
                                   isOwnMessage ? 'text-teal-100' : 'text-gray-500 dark:text-gray-400'
                                 }`}
                               >
-                                {new Date(message.timestamp).toLocaleTimeString('es-ES', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </p>
+                                <span className="text-xs">
+                                  {new Date(message.timestamp).toLocaleTimeString('es-ES', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                                {/* Mostrar indicador de leído solo en mensajes propios */}
+                                {isOwnMessage && (
+                                  <span title={message.read ? 'Leído' : 'Entregado'}>
+                                    {message.read ? (
+                                      <CheckCheck className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <Check className="w-3.5 h-3.5" />
+                                    )}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
