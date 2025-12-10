@@ -107,6 +107,21 @@ export async function banAdminUser(
   });
 }
 
+/**
+ * Desbanea un usuario (reactiva la cuenta)
+ * @param apiUrl - URL base de la API
+ * @param userId - ID del usuario a desbanear
+ */
+export async function unbanAdminUser(
+  apiUrl: string, 
+  userId: string
+): Promise<{ message: string }> {
+  return apiFetch<{ message: string }>(`/user/admin/users/${userId}/unban`, {
+    baseUrl: apiUrl,
+    method: 'PATCH',
+  });
+}
+
 // =============================================
 // COMPLAINTS (Denuncias)
 // =============================================

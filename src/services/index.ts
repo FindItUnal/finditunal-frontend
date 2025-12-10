@@ -11,6 +11,7 @@ export {
   getAdminUsers,
   getAdminUserDetail,
   banAdminUser,
+  unbanAdminUser,
   // Complaints
   getAdminComplaints,
   getAdminComplaintDetail,
