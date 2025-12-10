@@ -5,15 +5,33 @@ import useGlobalStore from '../store/useGlobalStore';
 import { profileService } from '../services';
 import { LoadingSpinner } from './atoms';
 import { useSocketIO } from '../hooks/useSocketIO';
+import { useQueryClient } from '@tanstack/react-query';
+import { socketService, FullNotificationData } from '../services/socketService';
 
 export default function AppInitializer() {
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
   const apiUrl = useGlobalStore((s) => s.apiUrl);
   const [isChecking, setIsChecking] = useState(true);
+  const queryClient = useQueryClient();
   
   // Inicializar Socket.IO cuando hay usuario autenticado
   useSocketIO();
+
+  // Escuchar notificaciones en tiempo real
+  useEffect(() => {
+    if (!user) return;
+
+    const cleanup = socketService.onFullNotification((notification: FullNotificationData) => {
+      console.log('📬 Nueva notificación recibida:', notification);
+      
+      // Invalidar cache de React Query para actualizar contadores
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+    });
+
+    return cleanup;
+  }, [user, queryClient]);
 
   useEffect(() => {
     const checkSession = async () => {

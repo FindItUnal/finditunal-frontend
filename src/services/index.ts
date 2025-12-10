@@ -39,3 +39,5 @@ export type {
   MessageRecord,
   SendMessagePayload,
 } from './chatService';
+export { notificationService } from './notificationService';
+export type { GetNotificationsParams } from './notificationService';
