@@ -24,6 +24,7 @@ export default function MessagesPage() {
 
   // Refs para scroll y estado previo
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const previousConversationRef = useRef<string | null>(null);
   const isLoadingRef = useRef(false);
 
@@ -55,8 +56,23 @@ export default function MessagesPage() {
   // Mutation para marcar como leído (fallback REST)
   const markAsReadMutation = useMarkAsRead();
 
-  // Función para scroll al final
+  // Función para scroll al final — intenta desplazar el contenedor de mensajes
+  // en lugar de hacer scroll de toda la página.
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      // preferimos scrollTo con comportamiento suave
+      try {
+        container.scrollTo({ top: container.scrollHeight, behavior });
+        return;
+      } catch (e) {
+        // fallback a scrollTop si scrollTo no soporta behavior
+        container.scrollTop = container.scrollHeight;
+        return;
+      }
+    }
+
+    // fallback global
     messagesEndRef.current?.scrollIntoView({ behavior });
   }, []);
 
@@ -434,7 +450,7 @@ export default function MessagesPage() {
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                   {loadingMessages ? (
                     <div className="flex justify-center items-center h-full">
                       <LoadingSpinner message="Cargando mensajes..." />

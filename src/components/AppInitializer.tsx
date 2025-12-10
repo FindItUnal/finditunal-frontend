@@ -17,27 +17,26 @@ export default function AppInitializer() {
 
   useEffect(() => {
     const checkSession = async () => {
-      // Si ya hay usuario en Zustand (localStorage persiste el estado), renderizar directamente
-      if (user) {
-        setIsChecking(false);
-        return;
-      }
-
-      // Si NO hay usuario en localStorage, verificar si existe sesión activa en el backend
-      // Esto cubre el caso donde el usuario cerró la pestaña pero la sesión sigue activa
+      // Siempre verificar si existe sesión activa en el backend
+      // Esto valida el token y asegura que la sesión no haya expirado
       try {
         const userData = await profileService.getProfile(apiUrl);
         setUser(userData);
       } catch (error) {
-        // No hay sesión activa - usuario debe hacer login
+        // No hay sesión activa o token expirado - limpiar estado local
         console.debug('No active session found');
+        if (user) {
+          // Si había un usuario en localStorage pero la sesión expiró, limpiarlo
+          setUser(null);
+        }
       } finally {
         setIsChecking(false);
       }
     };
 
     checkSession();
-  }, [user, setUser, apiUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiUrl]); // Solo ejecutar al montar el componente
 
   if (isChecking) {
     return (
