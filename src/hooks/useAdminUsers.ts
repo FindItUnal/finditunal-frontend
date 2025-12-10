@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AdminUserSummary } from '../types';
-import { getAdminUsers, banAdminUser } from '../services';
+import { getAdminUsers, banAdminUser, unbanAdminUser } from '../services';
 import useGlobalStore from '../store/useGlobalStore';
 
 interface UseAdminUsersReturn {
@@ -9,7 +9,8 @@ interface UseAdminUsersReturn {
   error: string | null;
   refetch: () => Promise<void>;
   banUser: (userId: string) => Promise<boolean>;
-  banningUserId: string | null;
+  unbanUser: (userId: string) => Promise<boolean>;
+  actionUserId: string | null;
 }
 
 /**
@@ -20,7 +21,7 @@ export function useAdminUsers(): UseAdminUsersReturn {
   const [users, setUsers] = useState<AdminUserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [banningUserId, setBanningUserId] = useState<string | null>(null);
+  const [actionUserId, setActionUserId] = useState<string | null>(null);
   
   const apiUrl = useGlobalStore((s) => s.apiUrl);
 
@@ -40,7 +41,7 @@ export function useAdminUsers(): UseAdminUsersReturn {
 
   const banUser = useCallback(async (userId: string): Promise<boolean> => {
     try {
-      setBanningUserId(userId);
+      setActionUserId(userId);
       await banAdminUser(apiUrl, userId);
       
       // Actualizar el estado local del usuario baneado (is_active = 0)
@@ -58,7 +59,31 @@ export function useAdminUsers(): UseAdminUsersReturn {
       setError(message);
       return false;
     } finally {
-      setBanningUserId(null);
+      setActionUserId(null);
+    }
+  }, [apiUrl]);
+
+  const unbanUser = useCallback(async (userId: string): Promise<boolean> => {
+    try {
+      setActionUserId(userId);
+      await unbanAdminUser(apiUrl, userId);
+      
+      // Actualizar el estado local del usuario desbaneado (is_active = 1)
+      setUsers(prevUsers => 
+        prevUsers.map(user => 
+          user.user_id === userId 
+            ? { ...user, is_active: 1 }
+            : user
+        )
+      );
+      
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al desbanear usuario';
+      setError(message);
+      return false;
+    } finally {
+      setActionUserId(null);
     }
   }, [apiUrl]);
 
@@ -72,6 +97,7 @@ export function useAdminUsers(): UseAdminUsersReturn {
     error,
     refetch: fetchUsers,
     banUser,
-    banningUserId,
+    unbanUser,
+    actionUserId,
   };
 }

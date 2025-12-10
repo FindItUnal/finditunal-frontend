@@ -9,6 +9,7 @@ export interface User {
   phone_number?: string;
   role: 'user' | 'admin';
   status: 'active' | 'suspended';
+  is_active?: number; // 1 = active, 2 = banned
   createdAt: string;
 }
 

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Search, Ban, MoreVertical, Mail, Calendar, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
+import { Search, Ban, UserCheck, MoreVertical, Mail, Calendar, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { PageTemplate } from '../components/templates';
 import BackButton from '../components/atoms/BackButton';
 import { Card, Badge } from '../components/atoms';
@@ -37,7 +37,7 @@ function UserRowSkeleton() {
 }
 
 export default function AdminUsersPage() {
-  const { users, loading, error, refetch, banUser, banningUserId } = useAdminUsers();
+  const { users, loading, error, refetch, banUser, unbanUser, banningUserId, unbanningUserId } = useAdminUsers();
   const apiUrl = useGlobalStore((s) => s.apiUrl);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<AdminUserSummary | null>(null);
@@ -81,6 +81,18 @@ export default function AdminUsersPage() {
       setShowActionMenu(null);
     }
   }, [banUser, selectedUser]);
+
+  // Manejar desbaneo de usuario
+  const handleUnbanUser = useCallback(async (userId: string) => {
+    const success = await unbanUser(userId);
+    if (success) {
+      // Actualizar el modal si el usuario desbaneado es el seleccionado
+      if (selectedUser?.user_id === userId) {
+        setSelectedUser({ ...selectedUser, is_active: 1 });
+      }
+      setShowActionMenu(null);
+    }
+  }, [unbanUser, selectedUser]);
 
   // Cerrar modal
   const closeModal = useCallback(() => {
@@ -227,27 +239,40 @@ export default function AdminUsersPage() {
                             showActionMenu === user.user_id ? null : user.user_id
                           );
                         }}
-                        disabled={banningUserId === user.user_id}
+                        disabled={banningUserId === user.user_id || unbanningUserId === user.user_id}
                         className="p-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50"
                       >
-                        {banningUserId === user.user_id ? (
+                        {banningUserId === user.user_id || unbanningUserId === user.user_id ? (
                           <Loader2 className="w-5 h-5 animate-spin" />
                         ) : (
                           <MoreVertical className="w-5 h-5" />
                         )}
                       </button>
-                      {showActionMenu === user.user_id && user.is_active === 1 && (
+                      {showActionMenu === user.user_id && (
                         <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-700 rounded-lg shadow-xl z-10 border border-gray-200 dark:border-gray-600">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleBanUser(user.user_id);
-                            }}
-                            className="w-full px-4 py-3 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center space-x-2 transition-colors rounded-lg"
-                          >
-                            <Ban className="w-4 h-4" />
-                            <span>Banear Usuario</span>
-                          </button>
+                          {user.is_active === 1 ? (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleBanUser(user.user_id);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center space-x-2 transition-colors rounded-lg"
+                            >
+                              <Ban className="w-4 h-4" />
+                              <span>Banear Usuario</span>
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUnbanUser(user.user_id);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30 flex items-center space-x-2 transition-colors rounded-lg"
+                            >
+                              <UserCheck className="w-4 h-4" />
+                              <span>Desbanear Usuario</span>
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -373,7 +398,7 @@ export default function AdminUsersPage() {
               >
                 Cerrar
               </button>
-              {selectedUser.is_active === 1 && (
+              {selectedUser.is_active === 1 ? (
                 <button 
                   onClick={() => handleBanUser(selectedUser.user_id)}
                   disabled={banningUserId === selectedUser.user_id}
@@ -388,6 +413,24 @@ export default function AdminUsersPage() {
                     <>
                       <Ban className="w-4 h-4" />
                       Banear Usuario
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button 
+                  onClick={() => handleUnbanUser(selectedUser.user_id)}
+                  disabled={unbanningUserId === selectedUser.user_id}
+                  className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none flex items-center gap-2"
+                >
+                  {unbanningUserId === selectedUser.user_id ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Desbaneando...
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="w-4 h-4" />
+                      Desbanear Usuario
                     </>
                   )}
                 </button>
