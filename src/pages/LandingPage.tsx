@@ -4,6 +4,7 @@ import ThemeToggle from '../components/atoms/ThemeToggle';
 import { Button } from '../components/atoms';
 import unalIcon from '../assets/icon_unal.svg';
 import useUserStore from '../store/useUserStore';
+import icon_page from '/icon_page.svg';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -16,8 +17,10 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-2">
-              <Package className="w-8 h-8 text-teal-600 dark:text-teal-400" />
-              <span className="text-xl font-bold text-gray-900 dark:text-white">FindIt</span>
+              <div className="w-[50px] h-[50px] overflow-hidden rounded-sm flex items-center justify-center">
+                <img src={icon_page} alt="Publicaciones" className="w-full h-full object-contain object-center" />
+              </div>
+              <span className="text-xl font-bold text-gray-900 dark:text-white !m-0">FindIt</span>
               <div className="w-[65px] h-[60px] flex items-start justify-start overflow-hidden rounded-md">
                 <img src={unalIcon} alt="Unal" className="min-w-full min-h-full object-cover" />
               </div>
@@ -186,9 +189,11 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-2 mb-4 md:mb-0">
-              <Package className="w-8 h-8 text-teal-400" />
-              <span className="text-xl font-bold">FindIt</span>
-              <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-md">
+              <div className="w-[50px] h-[50px] overflow-hidden rounded-sm flex items-center justify-center">
+                <img src={icon_page} alt="Publicaciones" className="w-full h-full object-contain object-center" />
+              </div>
+              <span className="text-xl font-bold !ml-0">FindIt</span>
+              <div className="w-[65px] h-[60px] flex items-start justify-start overflow-hidden rounded-md">
                 <img src={unalIcon} alt="Unal" className="min-w-full min-h-full object-cover" />
               </div>
             </div>

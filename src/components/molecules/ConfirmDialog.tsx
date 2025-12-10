@@ -1,6 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
+import { Button } from '../atoms';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -10,6 +11,16 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm?: () => void;
+  /** Use the shared `Button` component for the confirm action */
+  useButton?: boolean;
+  /** Props forwarded to the shared `Button` for confirm (children will be provided by the dialog) */
+  confirmButtonProps?: Omit<React.ComponentProps<typeof Button>, 'children'>;
+  /** Props forwarded to the shared `Button` for cancel (children will be provided by the dialog) */
+  cancelButtonProps?: Omit<React.ComponentProps<typeof Button>, 'children'>;
+  /** Fully custom React node for confirm button (takes precedence) */
+  confirmButton?: ReactNode;
+  /** Fully custom React node for cancel button (takes precedence) */
+  cancelButton?: ReactNode;
 }
 
 export default function ConfirmDialog({
@@ -20,6 +31,11 @@ export default function ConfirmDialog({
   confirmLabel = 'Eliminar',
   cancelLabel = 'Cancelar',
   onConfirm,
+  useButton = false,
+  confirmButtonProps,
+  cancelButtonProps,
+  confirmButton,
+  cancelButton,
 }: ConfirmDialogProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -38,18 +54,55 @@ export default function ConfirmDialog({
           <Dialog.Description className="text-sm text-gray-600 dark:text-gray-300 mb-6">{description}</Dialog.Description>
 
           <div className="flex items-center justify-end gap-3">
-            <Dialog.Close asChild>
-              <button className="px-4 py-2 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">{cancelLabel}</button>
-            </Dialog.Close>
-            <button
-              onClick={async () => {
-                if (onConfirm) await onConfirm();
-                onOpenChange(false);
-              }}
-              className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white"
-            >
-              {confirmLabel}
-            </button>
+            {/* Cancel button: priority - custom node, Button with props, default button */}
+            {cancelButton ? (
+              <Dialog.Close asChild>{cancelButton as any}</Dialog.Close>
+            ) : cancelButtonProps ? (
+              <Dialog.Close asChild>
+                <Button {...cancelButtonProps}>{cancelLabel}</Button>
+              </Dialog.Close>
+            ) : (
+              <Dialog.Close asChild>
+                <button className="px-4 py-2 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">{cancelLabel}</button>
+              </Dialog.Close>
+            )}
+
+            {/* Confirm button: priority - custom node, shared Button, default red button */}
+            {confirmButton ? (
+              React.isValidElement(confirmButton)
+                ? React.cloneElement(confirmButton as any, {
+                    onClick: async (e: any) => {
+                      const orig = (confirmButton as any).props?.onClick;
+                      if (orig) await orig(e);
+                      if (onConfirm) await onConfirm();
+                      onOpenChange(false);
+                    },
+                  })
+                : (confirmButton as any)
+            ) : useButton ? (
+              <Button
+                {...(confirmButtonProps || {})}
+                onClick={async (e: any) => {
+                  if (confirmButtonProps && (confirmButtonProps as any).onClick) {
+                    await (confirmButtonProps as any).onClick(e);
+                  }
+                  if (onConfirm) await onConfirm();
+                  onOpenChange(false);
+                }}
+              >
+                {confirmLabel}
+              </Button>
+            ) : (
+              <button
+                onClick={async () => {
+                  if (onConfirm) await onConfirm();
+                  onOpenChange(false);
+                }}
+                className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white"
+              >
+                {confirmLabel}
+              </button>
+            )}
           </div>
         </Dialog.Content>
       </Dialog.Portal>

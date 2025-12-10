@@ -348,6 +348,8 @@ export default function ObjectDetailPage() {
         confirmLabel="Crear conversación"
         cancelLabel="Cancelar"
         onConfirm={handleCreateConversation}
+        useButton
+        confirmButtonProps={{ variant: 'primary' }}
       />
 
       <ReportDialog

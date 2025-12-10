@@ -6,6 +6,7 @@ import unalIcon from '../../assets/icon_unal.svg';
 import { useState } from 'react';
 import useUserStore from '../../store/useUserStore';
 import useGlobalStore from '../../store/useGlobalStore';
+import icon_page from '/icon_page.svg';
 
 export interface HeaderProps {
   unreadMessageCount?: number;
@@ -38,8 +39,10 @@ export default function Header({ unreadMessageCount = 0 }: HeaderProps) {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-4">
             <NavLink to="/dashboard" className="flex items-center space-x-2">
-              <Package className="w-8 h-8 text-teal-600 dark:text-teal-400" />
-              <span className="text-xl font-bold text-gray-900 dark:text-white">FindIt</span>
+              <div className="w-[50px] h-[50px] overflow-hidden rounded-sm flex items-center justify-center">
+                <img src={icon_page} alt="Publicaciones" className="w-full h-full object-contain object-center" />
+              </div>
+              <span className="text-xl font-bold text-gray-900 dark:text-white !ml-0">FindIt</span>
               <div className="w-[65px] h-[60px] flex items-start justify-start overflow-hidden rounded-md">
                 <img src={unalIcon} alt="Unal" className="min-w-full min-h-full object-cover" />
               </div>
