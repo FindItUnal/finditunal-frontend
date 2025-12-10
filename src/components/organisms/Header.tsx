@@ -60,7 +60,7 @@ export default function Header({ unreadMessageCount = 0, unreadNotificationsCoun
               <div className="relative inline-flex items-center">
                 <MessageCircle className="w-5 h-5" />
                 {unreadMessageCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-teal-500 rounded-full border-2 border-white dark:border-gray-800 animate-pulse" title={`${unreadMessageCount} mensaje${unreadMessageCount > 1 ? 's' : ''} no leído${unreadMessageCount > 1 ? 's' : ''}`}></span>
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white dark:border-gray-800" title={`${unreadMessageCount} mensaje${unreadMessageCount > 1 ? 's' : ''} no leído${unreadMessageCount > 1 ? 's' : ''}`}></span>
                 )}
               </div>
             </NavLink>

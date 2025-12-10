@@ -7,6 +7,7 @@ import { LoadingSpinner } from './atoms';
 import { useSocketIO } from '../hooks/useSocketIO';
 import { useQueryClient } from '@tanstack/react-query';
 import { socketService, FullNotificationData } from '../services/socketService';
+import { useNotificationToast } from '../context/NotificationToastContext';
 
 export default function AppInitializer() {
   const user = useUserStore((s) => s.user);
@@ -14,6 +15,7 @@ export default function AppInitializer() {
   const apiUrl = useGlobalStore((s) => s.apiUrl);
   const [isChecking, setIsChecking] = useState(true);
   const queryClient = useQueryClient();
+  const { showNotification } = useNotificationToast();
   
   // Inicializar Socket.IO cuando hay usuario autenticado
   useSocketIO();
@@ -25,13 +27,18 @@ export default function AppInitializer() {
     const cleanup = socketService.onFullNotification((notification: FullNotificationData) => {
       console.log('📬 Nueva notificación recibida:', notification);
       
+      // Mostrar toast con la notificación
+      if (notification.message) {
+        showNotification(notification.message, notification.type);
+      }
+      
       // Invalidar cache de React Query para actualizar contadores
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
     });
 
     return cleanup;
-  }, [user, queryClient]);
+  }, [user, queryClient, showNotification]);
 
   useEffect(() => {
     const checkSession = async () => {
