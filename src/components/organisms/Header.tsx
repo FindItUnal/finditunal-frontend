@@ -1,5 +1,5 @@
 ﻿import { NavLink, useNavigate } from 'react-router-dom';
-import { Package, MessageCircle, User, Users, LogOut, Menu, X } from 'lucide-react';
+import { Package, MessageCircle, Bell, User, Users, LogOut, Menu, X } from 'lucide-react';
 import ThemeToggle from '../atoms/ThemeToggle';
 import ConfirmDialog from '../molecules/ConfirmDialog';
 import unalIcon from '../../assets/icon_unal.svg';
@@ -10,6 +10,7 @@ import icon_page from '/icon_page.svg';
 
 export interface HeaderProps {
   unreadMessageCount?: number;
+  unreadNotificationsCount?: number;
 }
 
 const navItemClass = ({ isActive }: { isActive: boolean }) =>
@@ -19,7 +20,7 @@ const navItemClass = ({ isActive }: { isActive: boolean }) =>
       : 'text-gray-600 dark:text-gray-300 hover:text-teal-600 dark:hover:text-teal-400'
   }`;
 
-export default function Header({ unreadMessageCount = 0 }: HeaderProps) {
+export default function Header({ unreadMessageCount = 0, unreadNotificationsCount = 0 }: HeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const user = useUserStore((s) => s.user);
@@ -59,7 +60,16 @@ export default function Header({ unreadMessageCount = 0 }: HeaderProps) {
               <div className="relative inline-flex items-center">
                 <MessageCircle className="w-5 h-5" />
                 {unreadMessageCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white dark:border-gray-800" title={`${unreadMessageCount} mensaje${unreadMessageCount > 1 ? 's' : ''} no leído${unreadMessageCount > 1 ? 's' : ''}`}></span>
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-teal-500 rounded-full border-2 border-white dark:border-gray-800 animate-pulse" title={`${unreadMessageCount} mensaje${unreadMessageCount > 1 ? 's' : ''} no leído${unreadMessageCount > 1 ? 's' : ''}`}></span>
+                )}
+              </div>
+            </NavLink>
+
+            <NavLink to="/notifications" className={navItemClass}>
+              <div className="relative inline-flex items-center">
+                <Bell className="w-5 h-5" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white dark:border-gray-800" title={`${unreadNotificationsCount} notificación${unreadNotificationsCount > 1 ? 'es' : ''} no leída${unreadNotificationsCount > 1 ? 's' : ''}`}></span>
                 )}
               </div>
             </NavLink>
@@ -123,10 +133,24 @@ export default function Header({ unreadMessageCount = 0 }: HeaderProps) {
                 <div className="relative">
                   <MessageCircle className="w-5 h-5" />
                   {unreadMessageCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white dark:border-gray-800 animate-pulse"></span>
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-teal-500 rounded-full border-2 border-white dark:border-gray-800 animate-pulse"></span>
                   )}
                 </div>
                 <span>Mensajes</span>
+              </NavLink>
+
+              <NavLink 
+                to="/notifications" 
+                className={({ isActive }) => isActive ? 'px-3 py-2 rounded-md bg-teal-600 text-white flex items-center space-x-2' : 'px-3 py-2 rounded-md text-gray-700 dark:text-gray-200 flex items-center space-x-2'} 
+                onClick={() => setMobileOpen(false)}
+              >
+                <div className="relative">
+                  <Bell className="w-5 h-5" />
+                  {unreadNotificationsCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-teal-500 rounded-full border-2 border-white dark:border-gray-800 animate-pulse"></span>
+                  )}
+                </div>
+                <span>Notificaciones</span>
               </NavLink>
 
               <NavLink 
