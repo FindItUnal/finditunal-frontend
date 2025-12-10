@@ -1,4 +1,4 @@
-import { Package } from 'lucide-react';
+import icon_page from '/icon_page.svg';
 
 export interface LogoProps {
   size?: 'sm' | 'md' | 'lg';
@@ -16,9 +16,11 @@ export default function Logo({ size = 'md', showText = true }: LogoProps) {
 
   return (
     <div className="flex items-center space-x-2">
-      <Package className={`${styles.icon} text-teal-600 dark:text-teal-400`} />
+      <div className="w-[50px] h-[50px] overflow-hidden rounded-sm flex items-center justify-center">
+        <img src={icon_page} alt="Publicaciones" className="w-full h-full object-contain object-center" />
+      </div>
       {showText && (
-        <span className={`${styles.text} font-bold text-gray-900 dark:text-white`}>
+        <span className={`${styles.text} font-bold text-gray-900 dark:text-white !m-0`}>
           FindIt
         </span>
       )}
