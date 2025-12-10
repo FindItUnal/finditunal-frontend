@@ -24,7 +24,7 @@ export default function DashboardPage() {
   const { data: backendCategories = [], isLoading: isLoadingCategories } = useCategories();
   const { data: backendLocations = [] } = useLocations();
   const { data: items = [], isLoading: isLoadingObjects, error: objectsError } = useObjects();
-  const { handlePublish, isPending: isPublishing } = useReportMutations();
+  const { handlePublish, deleteReport, isPending: isPublishing } = useReportMutations();
   const { submitComplaint } = useComplaintMutation();
 
   // Preparar categorías para el filtro (agregar "Todas" al inicio)
@@ -119,9 +119,23 @@ export default function DashboardPage() {
               setReportItemId(id);
               setReportOpen(true);
             }}
-            onItemDelete={(id) => {
-              // TODO: Implementar eliminación desde backend
-              console.warn(`Eliminar publicación ${id} - funcionalidad pendiente`);
+            onItemDelete={async (id) => {
+              try {
+                const reportId = parseInt(id, 10);
+                if (isNaN(reportId)) {
+                  toast.error('ID de publicación inválido');
+                  return;
+                }
+                await deleteReport.mutateAsync(reportId);
+                toast.success('Publicación eliminada correctamente');
+              } catch (err) {
+                console.error('Error al eliminar publicación:', err);
+                toast.error(
+                  err instanceof Error 
+                    ? err.message 
+                    : 'Error al eliminar la publicación'
+                );
+              }
             }}
           />
         ) : (
