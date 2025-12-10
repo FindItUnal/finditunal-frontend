@@ -21,15 +21,29 @@ export interface ConversationReadData {
   user_id: string;
 }
 
+// Notificación completa del backend
+export interface FullNotificationData {
+  notification_id: number;
+  user_id: string;
+  type: 'system' | 'report' | 'complaint' | 'message';
+  title: string;
+  message?: string | null;
+  related_id?: number | null;
+  is_read: number;
+  created_at: string;
+}
+
 type MessageCallback = (message: MessageData) => void;
 type NotificationCallback = (notification: NotificationData) => void;
 type ConversationReadCallback = (data: ConversationReadData) => void;
+type FullNotificationCallback = (notification: FullNotificationData) => void;
 
 class SocketService {
   private socket: Socket | null = null;
   private messageCallbacks: Set<MessageCallback> = new Set();
   private notificationCallbacks: Set<NotificationCallback> = new Set();
   private conversationReadCallbacks: Set<ConversationReadCallback> = new Set();
+  private fullNotificationCallbacks: Set<FullNotificationCallback> = new Set();
 
   connect(apiUrl: string): Socket {
     if (this.socket?.connected) {
@@ -83,6 +97,17 @@ class SocketService {
       this.conversationReadCallbacks.forEach((callback) => callback(data));
     });
 
+    // Configurar listeners para notificaciones completas del backend
+    // Según NotificationService.ts emite 'notification:new' y 'notification:{type}'
+    const handleFullNotification = (notification: FullNotificationData) => {
+      this.fullNotificationCallbacks.forEach((callback) => callback(notification));
+    };
+
+    this.socket.on('notification:system', handleFullNotification);
+    this.socket.on('notification:report', handleFullNotification);
+    this.socket.on('notification:complaint', handleFullNotification);
+    this.socket.on('notification:message', handleFullNotification);
+
     return this.socket;
   }
 
@@ -95,6 +120,7 @@ class SocketService {
     this.messageCallbacks.clear();
     this.notificationCallbacks.clear();
     this.conversationReadCallbacks.clear();
+    this.fullNotificationCallbacks.clear();
   }
 
   isConnected(): boolean {
@@ -150,6 +176,14 @@ class SocketService {
     this.conversationReadCallbacks.add(callback);
     return () => {
       this.conversationReadCallbacks.delete(callback);
+    };
+  }
+
+  // Suscribirse a notificaciones completas del sistema
+  onFullNotification(callback: FullNotificationCallback): () => void {
+    this.fullNotificationCallbacks.add(callback);
+    return () => {
+      this.fullNotificationCallbacks.delete(callback);
     };
   }
 
