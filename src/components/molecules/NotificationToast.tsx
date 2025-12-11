@@ -7,6 +7,8 @@ export interface NotificationToastProps {
   type: NotificationType;
   onClose: () => void;
   duration?: number;
+  conversationId?: number;
+  onClick?: () => void;
 }
 
 const typeConfig = {
@@ -37,10 +39,13 @@ export default function NotificationToast({
   type,
   onClose,
   duration = 5000,
+  conversationId,
+  onClick,
 }: NotificationToastProps) {
   const [isVisible, setIsVisible] = useState(false);
   const config = typeConfig[type];
   const Icon = config.icon;
+  const isClickable = !!onClick;
 
   useEffect(() => {
     // Animación de entrada
@@ -63,6 +68,13 @@ export default function NotificationToast({
     setTimeout(onClose, 300);
   };
 
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+      handleClose();
+    }
+  };
+
   return (
     <div
       className={`
@@ -76,7 +88,9 @@ export default function NotificationToast({
           bg-white dark:bg-gray-800 rounded-lg shadow-2xl border-l-4
           ${config.borderClass}
           overflow-hidden
+          ${isClickable ? 'cursor-pointer hover:shadow-3xl transition-shadow' : ''}
         `}
+        onClick={isClickable ? handleClick : undefined}
       >
         <div className="p-4 flex items-start space-x-3">
           {/* Icon */}
