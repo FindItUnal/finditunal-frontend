@@ -6,10 +6,12 @@ interface Toast {
   id: number;
   message: string;
   type: NotificationType;
+  conversationId?: number;
+  onClick?: () => void;
 }
 
 interface NotificationToastContextValue {
-  showNotification: (message: string, type: NotificationType) => void;
+  showNotification: (message: string, type: NotificationType, conversationId?: number, onClick?: () => void) => void;
 }
 
 const NotificationToastContext = createContext<NotificationToastContextValue | undefined>(undefined);
@@ -19,9 +21,9 @@ let toastIdCounter = 0;
 export function NotificationToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const showNotification = useCallback((message: string, type: NotificationType) => {
+  const showNotification = useCallback((message: string, type: NotificationType, conversationId?: number, onClick?: () => void) => {
     const id = toastIdCounter++;
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message, type, conversationId, onClick }]);
   }, []);
 
   const removeToast = useCallback((id: number) => {
@@ -40,6 +42,8 @@ export function NotificationToastProvider({ children }: { children: ReactNode })
               key={toast.id}
               message={toast.message}
               type={toast.type}
+              conversationId={toast.conversationId}
+              onClick={toast.onClick}
               onClose={() => removeToast(toast.id)}
             />
           ))}
