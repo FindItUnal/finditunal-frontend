@@ -25,6 +25,7 @@ export default function MessagesPage() {
   // Refs para scroll y estado previo
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
   const previousConversationRef = useRef<string | null>(null);
   const isLoadingRef = useRef(false);
 
@@ -339,6 +340,11 @@ export default function MessagesPage() {
               : msg
           )
         );
+        
+        // Mantener foco en el input para seguir escribiendo
+        setTimeout(() => {
+          messageInputRef.current?.focus();
+        }, 0);
       } catch (err) {
         console.error('Error al enviar mensaje:', err);
         toast.error(err instanceof Error ? err.message : 'Error al enviar el mensaje');
@@ -546,6 +552,7 @@ export default function MessagesPage() {
                 >
                   <div className="relative">
                     <input
+                      ref={messageInputRef}
                       type="text"
                       value={messageText}
                       onChange={(e) => setMessageText(e.target.value)}

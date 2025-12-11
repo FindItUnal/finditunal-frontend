@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { AppRoutes } from '../routes';
 import useUserStore from '../store/useUserStore';
 import useGlobalStore from '../store/useGlobalStore';
-import { profileService } from '../services';
+import { profileService, notificationService } from '../services';
 import { LoadingSpinner } from './atoms';
 import { useSocketIO } from '../hooks/useSocketIO';
 import { useQueryClient } from '@tanstack/react-query';
 import { socketService, FullNotificationData } from '../services/socketService';
 import { useNotificationToast } from '../context/NotificationToastContext';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getUserId } from '../utils/userUtils';
 
 export default function AppInitializer() {
   const user = useUserStore((s) => s.user);
@@ -19,6 +20,7 @@ export default function AppInitializer() {
   const { showNotification } = useNotificationToast();
   const location = useLocation();
   const navigate = useNavigate();
+  const userId = user ? getUserId(user) : null;
   
   // Inicializar Socket.IO cuando hay usuario autenticado
   useSocketIO();
@@ -53,14 +55,26 @@ export default function AppInitializer() {
             notification.message, 
             notification.type,
             conversationId,
-            () => {
+            async () => {
               // Al hacer click: navegar y marcar como leída
               navigate(`/messages/${conversationId}`);
-              // Marcar la notificación como leída vía Socket.IO
+              
+              // Marcar la notificación específica como leída (REST API)
+              if (userId) {
+                try {
+                  await notificationService.markAsRead(apiUrl, String(userId), notification.notification_id);
+                } catch (err) {
+                  console.error('Error al marcar notificación como leída:', err);
+                }
+              }
+              
+              // Marcar la conversación como leída vía Socket.IO
               socketService.markAsRead(conversationId);
-              // Invalidar queries
+              
+              // Invalidar queries para actualizar contadores
               queryClient.invalidateQueries({ queryKey: ['notifications'] });
               queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+              queryClient.invalidateQueries({ queryKey: ['notificationsUnreadCount'] });
             }
           );
         }
@@ -78,7 +92,7 @@ export default function AppInitializer() {
     });
 
     return cleanup;
-  }, [user, queryClient, showNotification, location.pathname, navigate]);
+  }, [user, userId, queryClient, showNotification, location.pathname, navigate, apiUrl]);
 
   useEffect(() => {
     const checkSession = async () => {
