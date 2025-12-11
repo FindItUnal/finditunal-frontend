@@ -372,13 +372,20 @@ export default function ObjectDetailPage() {
             
             toast.success('Denuncia enviada correctamente');
             setReportOpen(false);
-          } catch (err) {
+          } catch (err: any) {
             console.error('Error al enviar denuncia:', err);
-            toast.error(
-              err instanceof Error 
-                ? err.message 
-                : 'Error al enviar la denuncia. Por favor, intenta nuevamente.'
-            );
+            
+            // Detectar error de denuncia duplicada (409 Conflict)
+            const errorMessage = err?.message || '';
+            if (err?.status === 409 || errorMessage.includes('Ya has denunciado')) {
+              toast.error('Ya has denunciado esta publicación anteriormente');
+            } else {
+              toast.error(
+                err instanceof Error 
+                  ? err.message 
+                  : 'Error al enviar la denuncia. Por favor, intenta nuevamente.'
+              );
+            }
           }
         }}
       />

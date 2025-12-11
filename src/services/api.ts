@@ -118,11 +118,13 @@ export async function apiFetch<T = unknown>(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(
+    const error: any = new Error(
       errorData?.message || 
       errorData?.error || 
       `HTTP Error ${response.status}: ${response.statusText}`
     );
+    error.status = response.status;
+    throw error;
   }
 
   // Si la respuesta es 204 No Content, retornar null

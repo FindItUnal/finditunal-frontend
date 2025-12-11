@@ -1,5 +1,5 @@
 import { apiFetch } from './api';
-import { Notification, NotificationPage } from '../types';
+import { NotificationPage } from '../types';
 
 /**
  * Parámetros para obtener notificaciones
