@@ -156,15 +156,15 @@ export default function ObjectDetailPage() {
         {/* Image Section */}
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl">
-            <div className="relative aspect-[4/3] bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-xl">
+            <div className="relative bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-xl flex items-center justify-center">
               {object.imageUrl ? (
                 <img
                   src={object.imageUrl}
                   alt={object.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-auto max-h-[640px] object-contain"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center">
+                <div className="w-full flex items-center justify-center py-20">
                   <p className="text-gray-400 dark:text-gray-500">Sin imagen</p>
                 </div>
               )}
