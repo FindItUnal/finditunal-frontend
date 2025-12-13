@@ -1,6 +1,5 @@
 import { Card, Badge, IconButton } from '../atoms';
 import { ItemInfo, UserInfo } from '../molecules';
-import { MessageCircle } from 'lucide-react';
 import { Item } from '../../types';
 import AdminOrReport from '../molecules/AdminOrReport';
 
@@ -32,50 +31,48 @@ export default function ItemCard({ item, onOpen, onMessage, onReport, onDelete }
     onOpen(item.id);
   };
 
-  const statusVariant = item.status === 'found' ? 'success' : item.status === 'lost' ? 'warning' : 'info';
-  const statusText = item.status === 'found' ? 'Encontrado' : item.status === 'lost' ? 'Perdido' : 'entregado';
+  const statusVariant = item.status === 'claimed' ? 'success' : item.status === 'found' ? 'success' : 'warning';
+  const statusText = item.status === 'claimed' ? 'Entregado' : item.status === 'found' ? 'Encontrado' : 'Perdido';
 
   return (
     <Card
       role="button"
       tabIndex={0}
-  onClick={handleClick}
-  onKeyDown={handleKey}
+      onClick={handleClick}
+      onKeyDown={handleKey}
       hoverable
       padding="none"
     >
       <div className="h-48 bg-gray-200 dark:bg-gray-700 overflow-hidden">
-        <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+        {item.imageUrl ? (
+          <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
+            Sin imagen
+          </div>
+        )}
       </div>
 
-      <div className="p-5">
-        <div className="flex items-start justify-between mb-3">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{item.title}</h3>
-          <Badge variant={statusVariant}>{statusText}</Badge>
+      <div className="p-5 flex-1 flex flex-col">
+        <div className="flex-1">
+          <div className="flex items-start justify-between mb-3">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{item.title}</h3>
+            <Badge variant={statusVariant}>{statusText}</Badge>
+          </div>
+
+          <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
+            {item.description}
+          </p>
+
+          <div className="mb-4">
+            <ItemInfo location={item.location} date={item.date} />
+          </div>
         </div>
 
-        <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
-          {item.description}
-        </p>
-
-        <div className="mb-4">
-          <ItemInfo location={item.location} date={item.date} />
-        </div>
-
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700 mt-auto">
           <UserInfo name={item.userName} avatar={item.userAvatar} size="sm" />
 
             <div className="flex items-center space-x-2">
-              <IconButton
-                icon={MessageCircle}
-                variant="primary"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMessage(item.id);
-                }}
-                ariaLabel={`Enviar mensaje a ${item.userName}`}
-              />
-
               {/* If current user is admin, show delete (with confirm). Otherwise show report */}
               <AdminOrReport
                 id={item.id}

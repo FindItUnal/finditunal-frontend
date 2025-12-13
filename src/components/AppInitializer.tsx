@@ -2,45 +2,125 @@ import { useEffect, useState } from 'react';
 import { AppRoutes } from '../routes';
 import useUserStore from '../store/useUserStore';
 import useGlobalStore from '../store/useGlobalStore';
-import { profileService } from '../services';
+import { profileService, notificationService } from '../services';
+import { LoadingSpinner } from './atoms';
+import { useSocketIO } from '../hooks/useSocketIO';
+import { useQueryClient } from '@tanstack/react-query';
+import { socketService, FullNotificationData } from '../services/socketService';
+import { useNotificationToast } from '../context/NotificationToastContext';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { getUserId } from '../utils/userUtils';
 
 export default function AppInitializer() {
   const user = useUserStore((s) => s.user);
   const setUser = useUserStore((s) => s.setUser);
   const apiUrl = useGlobalStore((s) => s.apiUrl);
   const [isChecking, setIsChecking] = useState(true);
+  const queryClient = useQueryClient();
+  const { showNotification } = useNotificationToast();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const userId = user ? getUserId(user) : null;
+  
+  // Inicializar Socket.IO cuando hay usuario autenticado
+  useSocketIO();
+
+  // Escuchar notificaciones en tiempo real
+  useEffect(() => {
+    if (!user) return;
+
+    const cleanup = socketService.onFullNotification((notification: FullNotificationData) => {
+      console.log('📬 Nueva notificación recibida:', notification);
+      
+      // Si es una notificación de mensaje de chat
+      if (notification.type === 'message' && notification.related_id) {
+        const conversationId = notification.related_id;
+        
+        // NO mostrar toast si ya estás en esa conversación
+        const currentPath = location.pathname;
+        const isInActiveConversation = currentPath === `/messages/${conversationId}`;
+        
+        if (isInActiveConversation) {
+          console.log('🔕 Suprimiendo notificación toast - ya estás en la conversación activa');
+          // Solo invalidar queries pero no mostrar toast
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+          return;
+        }
+        
+        // Mostrar toast clickeable con navegación
+        if (notification.message) {
+          showNotification(
+            notification.message, 
+            notification.type,
+            conversationId,
+            async () => {
+              // Al hacer click: navegar y marcar como leída
+              navigate(`/messages/${conversationId}`);
+              
+              // Marcar la notificación específica como leída (REST API)
+              if (userId) {
+                try {
+                  await notificationService.markAsRead(apiUrl, String(userId), notification.notification_id);
+                } catch (err) {
+                  console.error('Error al marcar notificación como leída:', err);
+                }
+              }
+              
+              // Marcar la conversación como leída vía Socket.IO
+              socketService.markAsRead(conversationId);
+              
+              // Invalidar queries para actualizar contadores
+              queryClient.invalidateQueries({ queryKey: ['notifications'] });
+              queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+              queryClient.invalidateQueries({ queryKey: ['notificationsUnreadCount'] });
+            }
+          );
+        }
+      } else {
+        // Para otros tipos de notificaciones, mostrar normalmente
+        if (notification.message) {
+          showNotification(notification.message, notification.type);
+        }
+      }
+      
+      // Invalidar cache de React Query para actualizar contadores
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    });
+
+    return cleanup;
+  }, [user, userId, queryClient, showNotification, location.pathname, navigate, apiUrl]);
 
   useEffect(() => {
     const checkSession = async () => {
-      // Si ya hay usuario en Zustand (localStorage persiste el estado), renderizar directamente
-      if (user) {
-        setIsChecking(false);
-        return;
-      }
-
-      // Si NO hay usuario en localStorage, verificar si existe sesión activa en el backend
-      // Esto cubre el caso donde el usuario cerró la pestaña pero la sesión sigue activa
+      // Siempre verificar si existe sesión activa en el backend
+      // Esto valida el token y asegura que la sesión no haya expirado
       try {
         const userData = await profileService.getProfile(apiUrl);
         setUser(userData);
       } catch (error) {
-        // No hay sesión activa - usuario debe hacer login
+        // No hay sesión activa o token expirado - limpiar estado local
         console.debug('No active session found');
+        if (user) {
+          // Si había un usuario en localStorage pero la sesión expiró, limpiarlo
+          setUser(null);
+        }
       } finally {
         setIsChecking(false);
       }
     };
 
     checkSession();
-  }, [user, setUser, apiUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiUrl]); // Solo ejecutar al montar el componente
 
   if (isChecking) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Cargando...</p>
-        </div>
+        <LoadingSpinner message="Cargando..." centered={false} />
       </div>
     );
   }

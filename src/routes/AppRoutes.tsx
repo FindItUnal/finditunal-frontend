@@ -4,12 +4,14 @@ import {
   DashboardPage,
   ProfilePage,
   MessagesPage,
+  NotificationsPage,
   LandingPage,
   ObjectDetailPage,
   AdminDashboardPage,
   AdminUsersPage,
   AdminReportsPage,
   AuthCallbackPage,
+  BannedPage,
 } from '../pages';
 import Layout from '../components/templates/Layout';
 import PrivateRoute from './PrivateRoute';
@@ -20,6 +22,7 @@ export default function AppRoutes() {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route path="/banned" element={<BannedPage />} />
 
       {/* Rutas protegidas con Layout compartido */}
       <Route element={<Layout />}>
@@ -52,6 +55,22 @@ export default function AppRoutes() {
           element={
             <PrivateRoute>
               <MessagesPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/messages/:conversationId"
+          element={
+            <PrivateRoute>
+              <MessagesPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <PrivateRoute>
+              <NotificationsPage />
             </PrivateRoute>
           }
         />

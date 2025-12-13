@@ -1,111 +1,87 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTemplate } from '../components/templates';
 import { SearchFilterBar, ItemGrid, EmptyState } from '../components/organisms';
 import PublishModal from '../components/organisms/PublishModal';
-import { useSearchFilter, useModal } from '../hooks';
-import { Item } from '../types';
+import { useSearchFilter, useModal, useCategories, useLocations, useObjects, useReportMutations, useComplaintMutation } from '../hooks';
 import ReportDialog from '../components/molecules/ReportDialog';
+import { LoadingSpinner } from '../components/atoms';
+import { useToast } from '../context/ToastContext';
 import useUserStore from '../store/useUserStore';
-
-// Mock data
-const mockItems: Item[] = [
-  {
-    id: '1',
-    title: 'iPhone 13 Pro',
-    description: 'Encontrado en la biblioteca, con funda azul',
-    category: 'Electrónicos',
-    imageUrl: 'https://images.pexels.com/photos/788946/pexels-photo-788946.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Biblioteca Central',
-    date: '2025-10-20',
-    status: 'found',
-    userId: '2',
-    userName: 'María García',
-    createdAt: '2025-10-20T10:00:00Z',
-  },
-  {
-    id: '2',
-    title: 'Mochila negra Nike',
-    description: 'Mochila deportiva con libros de ingeniería',
-    category: 'Mochilas',
-    imageUrl: 'https://images.pexels.com/photos/2905238/pexels-photo-2905238.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Gimnasio Universitario',
-    date: '2025-10-19',
-    status: 'found',
-    userId: '3',
-    userName: 'Carlos Ruiz',
-    createdAt: '2025-10-19T14:30:00Z',
-  },
-  {
-    id: '3',
-    title: 'Laptop Dell',
-    description: 'Laptop con stickers de programación',
-    category: 'Electrónicos',
-    imageUrl: 'https://images.pexels.com/photos/18105/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Aula 305',
-    date: '2025-10-18',
-    status: 'found',
-    userId: '4',
-    userName: 'Ana López',
-    createdAt: '2025-10-18T16:45:00Z',
-  },
-  {
-    id: '4',
-    title: 'Llaves con llavero rojo',
-    description: 'Juego de llaves con llavero de Marvel',
-    category: 'Llaves',
-    imageUrl: 'https://images.pexels.com/photos/277572/pexels-photo-277572.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Cafetería',
-    date: '2025-10-21',
-    status: 'found',
-    userId: '5',
-    userName: 'Pedro Martínez',
-    createdAt: '2025-10-21T09:15:00Z',
-  },
-  {
-    id: '5',
-    title: 'Audífonos Bluetooth',
-    description: 'Audífonos Sony negros con estuche',
-    category: 'Electrónicos',
-    imageUrl: 'https://images.pexels.com/photos/3394650/pexels-photo-3394650.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Laboratorio de Cómputo',
-    date: '2025-10-17',
-    status: 'found',
-    userId: '6',
-    userName: 'Laura Fernández',
-    createdAt: '2025-10-17T11:20:00Z',
-  },
-  {
-    id: '6',
-    title: 'Libro Cálculo II',
-    description: 'Libro con nombre en la primera página',
-    category: 'Libros',
-    imageUrl: 'https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg?auto=compress&cs=tinysrgb&w=400',
-    location: 'Salón 201',
-    date: '2025-10-22',
-    status: 'found',
-    userId: '7',
-    userName: 'Roberto Díaz',
-    createdAt: '2025-10-22T13:00:00Z',
-  },
-];
-
-const categories = ['Todas', 'Electrónicos', 'Mochilas', 'Llaves', 'Libros', 'Ropa', 'Documentos', 'Otros'];
 
 export default function DashboardPage() {
   const user = useUserStore((s) => s.user);
   const navigate = useNavigate();
-  const { searchTerm, setSearchTerm, selectedCategory, setSelectedCategory, filterItems } = useSearchFilter('Todas');
+  const toast = useToast();
+  const { searchTerm, setSearchTerm, selectedCategory, setSelectedCategory } = useSearchFilter('Todas');
+  const [selectedStatus, setSelectedStatus] = useState<string>('Todos');
+  const [selectedLocation, setSelectedLocation] = useState<string>('Todas');
   const publishModal = useModal();
   const [reportOpen, setReportOpen] = useState(false);
   const [reportItemId, setReportItemId] = useState<string | null>(null);
 
-  const filteredItems = filterItems(mockItems);
+  // Usar hooks de TanStack Query
+  const { data: backendCategories = [], isLoading: isLoadingCategories } = useCategories();
+  const { data: backendLocations = [] } = useLocations();
+  const { data: items = [], isLoading: isLoadingObjects, error: objectsError } = useObjects();
+  const { handlePublish, deleteReport, isPending: isPublishing } = useReportMutations();
+  const { submitComplaint } = useComplaintMutation();
 
-  const handlePublish = (data: any) => {
-    console.log('Publishing item:', data);
-    alert(`Objeto publicado: ${data.title}`);
+  // Preparar categorías para el filtro (agregar "Todas" al inicio)
+  const categories = useMemo(() => {
+    return ['Todas', ...backendCategories.map((cat) => cat.name)];
+  }, [backendCategories]);
+
+  // Preparar ubicaciones para el filtro (agregar "Todas" al inicio)
+  const locations = useMemo(() => {
+    return ['Todas', ...backendLocations.map((loc) => loc.name)];
+  }, [backendLocations]);
+
+  // Filtrar items - usar useMemo para recalcular cuando cambien items, searchTerm, selectedCategory, selectedStatus o selectedLocation
+  const filteredItems = useMemo(() => {
+    if (!items || items.length === 0) return [];
+    // Aplicar filtro directamente aquí para asegurar que se recalcule correctamente
+    return items.filter((item) => {
+      const matchesSearch =
+        searchTerm === '' ||
+        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory =
+        selectedCategory === 'Todas' ||
+        item.category.trim().toLowerCase() === selectedCategory.trim().toLowerCase();
+      const matchesStatus =
+        selectedStatus === 'Todos' ||
+        (selectedStatus === 'Perdido' && item.status === 'lost') ||
+        (selectedStatus === 'Encontrado' && item.status === 'found');
+      const matchesLocation =
+        selectedLocation === 'Todas' ||
+        item.location.trim().toLowerCase() === selectedLocation.trim().toLowerCase();
+      return matchesSearch && matchesCategory && matchesStatus && matchesLocation;
+    });
+  }, [items, searchTerm, selectedCategory, selectedStatus, selectedLocation]);
+
+  const handlePublishSubmit = async (data: {
+    title: string;
+    description: string;
+    category: string;
+    location: string;
+    type: 'found' | 'lost';
+    found_date: string;
+    contact_method: string;
+    image?: File;
+    reportId?: string;
+  }) => {
+    try {
+      await handlePublish(data, backendCategories, backendLocations);
+      publishModal.close();
+      toast.success('Objeto publicado exitosamente');
+    } catch (err) {
+      console.error('Error al publicar objeto:', err);
+      toast.error(err instanceof Error ? err.message : 'Error al publicar el objeto');
+    }
   };
+
+  const isLoading = isLoadingCategories || isLoadingObjects;
 
   return (
     <PageTemplate
@@ -119,25 +95,47 @@ export default function DashboardPage() {
           categories={categories}
           selectedCategory={selectedCategory}
           onCategoryChange={setSelectedCategory}
+          selectedStatus={selectedStatus}
+          onStatusChange={setSelectedStatus}
+          locations={locations}
+          selectedLocation={selectedLocation}
+          onLocationChange={setSelectedLocation}
           onPublish={publishModal.open}
         />
 
-        {filteredItems.length > 0 ? (
+        {isLoading ? (
+          <LoadingSpinner message="Cargando objetos..." />
+        ) : objectsError ? (
+          <EmptyState
+            title="Error al cargar objetos"
+            description={objectsError instanceof Error ? objectsError.message : 'Error desconocido'}
+          />
+        ) : filteredItems.length > 0 ? (
           <ItemGrid
             items={filteredItems}
-            onItemOpen={(id) => {
-              navigate(`/object/${id}`);
-              console.log(`Abrir objeto ${id}`);
-            }}
+            onItemOpen={(id) => navigate(`/object/${id}`)}
             onItemMessage={() => navigate('/messages')}
             onItemReport={(id) => {
               setReportItemId(id);
               setReportOpen(true);
             }}
-            onItemDelete={(id) => {
-              // For now just alert; in a real app you'd call backend to delete and refresh list
-
-              console.log(`Eliminar publicación ${id}`);
+            onItemDelete={async (id) => {
+              try {
+                const reportId = parseInt(id, 10);
+                if (isNaN(reportId)) {
+                  toast.error('ID de publicación inválido');
+                  return;
+                }
+                await deleteReport.mutateAsync(reportId);
+                toast.success('Publicación eliminada correctamente');
+              } catch (err) {
+                console.error('Error al eliminar publicación:', err);
+                toast.error(
+                  err instanceof Error 
+                    ? err.message 
+                    : 'Error al eliminar la publicación'
+                );
+              }
             }}
           />
         ) : (
@@ -151,10 +149,14 @@ export default function DashboardPage() {
       <PublishModal
         open={publishModal.isOpen}
         onOpenChange={(open) => {
-          if (!open) publishModal.close();
+          if (!open) {
+            publishModal.close();
+          }
         }}
-        onPublish={handlePublish}
-        categories={categories.filter((c) => c !== 'Todas')}
+        onPublish={handlePublishSubmit}
+        categories={backendCategories}
+        locations={backendLocations}
+        isLoading={isPublishing}
       />
 
       <ReportDialog
@@ -163,10 +165,39 @@ export default function DashboardPage() {
           setReportOpen(open);
           if (!open) setReportItemId(null);
         }}
-        onReport={(payload) => {
-          alert(`Reporte enviado para item ${reportItemId}: ${JSON.stringify(payload)}`);
-          setReportOpen(false);
-          setReportItemId(null);
+        onReport={async (payload) => {
+          if (!reportItemId) return;
+          
+          try {
+            const reportId = parseInt(reportItemId, 10);
+            if (isNaN(reportId)) {
+              toast.error('ID de publicación inválido');
+              return;
+            }
+            
+            await submitComplaint.mutateAsync({
+              reportId,
+              payload,
+            });
+            
+            toast.success('Denuncia enviada correctamente');
+            setReportOpen(false);
+            setReportItemId(null);
+          } catch (err: any) {
+            console.error('Error al enviar denuncia:', err);
+            
+            // Detectar error de denuncia duplicada (409 Conflict)
+            const errorMessage = err?.message || '';
+            if (err?.status === 409 || errorMessage.includes('Ya has denunciado')) {
+              toast.error('Ya has denunciado esta publicación anteriormente');
+            } else {
+              toast.error(
+                err instanceof Error 
+                  ? err.message 
+                  : 'Error al enviar la denuncia. Por favor, intenta nuevamente.'
+              );
+            }
+          }
         }}
       />
     </PageTemplate>

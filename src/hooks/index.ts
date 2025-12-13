@@ -1,7 +1,38 @@
 export { useSearchFilter } from './useSearchFilter';
 export { useModal } from './useModal';
 export { useAuth } from './useAuth';
+export { useProfile } from './useProfile';
+export { useCategories } from './useCategories';
+export { useLocations } from './useLocations';
+export { useObjects } from './useObjects';
+export { useUserReports } from './useUserReports';
+export { useObjectById } from './useObjectById';
+export { useReportMutations } from './useReportMutations';
+export { useComplaintMutation } from './useComplaintMutation';
+export { 
+  useConversationExists, 
+  useConversations, 
+  useCreateConversation,
+  useDeleteConversation,
+  useMarkAsRead 
+} from './useConversations';
+export { useMessages, useSendMessage } from './useMessages';
+export { useSocketIO } from './useSocketIO';
+export { useAdminDashboardStats } from './useAdminDashboardStats';
+export { useAdminActivityLog } from './useAdminActivityLog';
+export { useAdminUsers } from './useAdminUsers';
+export { useAdminComplaints } from './useAdminComplaints';
+export { 
+  useNotifications, 
+  useUnreadNotificationsCount, 
+  useMarkNotificationAsRead, 
+  useMarkAllNotificationsAsRead 
+} from './useNotifications';
 
 export type { UseSearchFilterReturn } from './useSearchFilter';
 export type { UseModalReturn } from './useModal';
 export type { UseAuthReturn } from './useAuth';
+export type { UseProfileReturn } from './useProfile';
+export type { UseAdminDashboardStatsReturn } from './useAdminDashboardStats';
+export type { UseAdminActivityLogReturn } from './useAdminActivityLog';
+export type { ComplaintFilters } from './useAdminComplaints';

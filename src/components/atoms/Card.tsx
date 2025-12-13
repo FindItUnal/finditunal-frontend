@@ -26,7 +26,7 @@ export default function Card({
 
   return (
     <div
-      className={`bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-colors ${hoverStyles} ${paddingStyles[padding]} ${className}`}
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-md overflow-hidden transition-colors flex flex-col ${hoverStyles} ${paddingStyles[padding]} ${className}`}
       {...props}
     >
       {children}

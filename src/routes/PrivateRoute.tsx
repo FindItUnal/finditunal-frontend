@@ -14,6 +14,11 @@ export default function PrivateRoute({ children, requireAdmin = false }: Private
     return <Navigate to="/login" replace />;
   }
 
+  // Redirigir usuarios baneados a la página de suspensión (is_active = 2 significa baneado)
+  if (user?.is_active === 2) {
+    return <Navigate to="/banned" replace />;
+  }
+
   if (requireAdmin && user?.role !== 'admin') {
     return <Navigate to="/dashboard" replace />;
   }
