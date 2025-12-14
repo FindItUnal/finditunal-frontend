@@ -44,11 +44,11 @@ export function useAdminUsers(): UseAdminUsersReturn {
       setActionUserId(userId);
       await banAdminUser(apiUrl, userId);
       
-      // Actualizar el estado local del usuario baneado (is_active = 0)
+      // Actualizar el estado local del usuario baneado (is_active = 2)
       setUsers(prevUsers => 
         prevUsers.map(user => 
           user.user_id === userId 
-            ? { ...user, is_active: 0 }
+            ? { ...user, is_active: 2 }
             : user
         )
       );
