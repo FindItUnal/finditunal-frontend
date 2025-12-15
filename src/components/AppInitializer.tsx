@@ -28,13 +28,23 @@ export default function AppInitializer() {
 
       // Si hay usuario en localStorage, verificar si está baneado
       if (user) {
+        // Si el usuario local ya indica que está baneado, redirigir inmediatamente
+        if (user.is_active === 2) {
+          console.log('[AppInitializer] Usuario local baneado, redirigiendo a /banned');
+          navigate('/banned', { replace: true });
+          setIsChecking(false);
+          return;
+        }
+        
         // Verificar el estado del usuario con el backend para asegurar que is_active esté actualizado
         try {
           const userData = await profileService.getProfile(apiUrl);
+          console.log('[AppInitializer] Usuario desde backend:', { is_active: userData.is_active });
           setUser(userData);
           
           // Si el usuario está baneado (is_active = 2), redirigir a /banned
-          if (userData.is_active === 2) {
+          if ((userData as any).is_active === 2) {
+            console.log('[AppInitializer] Usuario baneado según backend, redirigiendo a /banned');
             navigate('/banned', { replace: true });
           }
         } catch (error) {
@@ -50,10 +60,12 @@ export default function AppInitializer() {
       // Esto cubre el caso donde el usuario cerró la pestaña pero la sesión sigue activa
       try {
         const userData = await profileService.getProfile(apiUrl);
+        console.log('[AppInitializer] Usuario nuevo desde backend:', { is_active: (userData as any).is_active });
         setUser(userData);
         
         // Si el usuario está baneado (is_active = 2), redirigir a /banned
-        if (userData.is_active === 2) {
+        if ((userData as any).is_active === 2) {
+          console.log('[AppInitializer] Usuario nuevo baneado, redirigiendo a /banned');
           navigate('/banned', { replace: true });
         }
       } catch (error) {

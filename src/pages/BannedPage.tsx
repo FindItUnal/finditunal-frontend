@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ShieldX, Mail, LogOut } from 'lucide-react';
+import { ShieldX, Mail, LogOut, Home } from 'lucide-react';
 import { AuthTemplate } from '../components/templates';
 import ThemeToggle from '../components/atoms/ThemeToggle';
 import { Button, Logo } from '../components/atoms';
@@ -10,10 +10,17 @@ export default function BannedPage() {
   const navigate = useNavigate();
   const user = useUserStore((s) => s.user);
   const logout = useUserStore((s) => s.logout);
+  const setUser = useUserStore((s) => s.setUser);
   const apiUrl = useGlobalStore((s) => s.apiUrl);
 
   const handleLogout = async () => {
     await logout(apiUrl, navigate);
+  };
+
+  const handleGoHome = () => {
+    // Limpiar cualquier dato de usuario que pueda existir
+    setUser(null);
+    navigate('/', { replace: true });
   };
 
   return (
@@ -92,15 +99,26 @@ export default function BannedPage() {
             </a>
           </div>
 
-          {/* Botón de cerrar sesión */}
-          <Button
-            onClick={handleLogout}
-            variant="secondary"
-            fullWidth
-            icon={LogOut}
-          >
-            Cerrar Sesión
-          </Button>
+          {/* Botón de cerrar sesión o volver al inicio */}
+          {user ? (
+            <Button
+              onClick={handleLogout}
+              variant="secondary"
+              fullWidth
+              icon={LogOut}
+            >
+              Cerrar Sesión
+            </Button>
+          ) : (
+            <Button
+              onClick={handleGoHome}
+              variant="secondary"
+              fullWidth
+              icon={Home}
+            >
+              Volver al Inicio
+            </Button>
+          )}
         </div>
 
         {/* Footer */}
