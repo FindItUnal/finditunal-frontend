@@ -15,6 +15,7 @@ export interface UserProfile {
   createdAt: string;
   profile_picture?: string;
   created_at?: string;
+  is_active?: number; // 1 = active, 2 = banned
 }
 
 /**

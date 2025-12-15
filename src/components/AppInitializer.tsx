@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AppRoutes } from '../routes';
 import useUserStore from '../store/useUserStore';
 import useGlobalStore from '../store/useGlobalStore';
@@ -11,14 +12,36 @@ export default function AppInitializer() {
   const setUser = useUserStore((s) => s.setUser);
   const apiUrl = useGlobalStore((s) => s.apiUrl);
   const [isChecking, setIsChecking] = useState(true);
+  const navigate = useNavigate();
+  const location = useLocation();
   
   // Inicializar Socket.IO cuando hay usuario autenticado
   useSocketIO();
 
   useEffect(() => {
     const checkSession = async () => {
-      // Si ya hay usuario en Zustand (localStorage persiste el estado), renderizar directamente
+      // Si estamos en /banned, no interferir
+      if (location.pathname === '/banned') {
+        setIsChecking(false);
+        return;
+      }
+
+      // Si hay usuario en localStorage, verificar si está baneado
       if (user) {
+        // Verificar el estado del usuario con el backend para asegurar que is_active esté actualizado
+        try {
+          const userData = await profileService.getProfile(apiUrl);
+          setUser(userData);
+          
+          // Si el usuario está baneado (is_active = 2), redirigir a /banned
+          if (userData.is_active === 2) {
+            navigate('/banned', { replace: true });
+          }
+        } catch (error) {
+          // Si falla la verificación, limpiar el usuario del store
+          console.debug('Error verificando sesión, limpiando usuario');
+          setUser(null);
+        }
         setIsChecking(false);
         return;
       }
@@ -28,6 +51,11 @@ export default function AppInitializer() {
       try {
         const userData = await profileService.getProfile(apiUrl);
         setUser(userData);
+        
+        // Si el usuario está baneado (is_active = 2), redirigir a /banned
+        if (userData.is_active === 2) {
+          navigate('/banned', { replace: true });
+        }
       } catch (error) {
         // No hay sesión activa - usuario debe hacer login
         console.debug('No active session found');
@@ -37,7 +65,7 @@ export default function AppInitializer() {
     };
 
     checkSession();
-  }, [user, setUser, apiUrl]);
+  }, [user, setUser, apiUrl, navigate, location.pathname]);
 
   if (isChecking) {
     return (
