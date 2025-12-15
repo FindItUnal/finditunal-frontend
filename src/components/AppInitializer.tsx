@@ -20,8 +20,14 @@ export default function AppInitializer() {
 
   useEffect(() => {
     const checkSession = async () => {
-      // Si estamos en /banned, no interferir
-      if (location.pathname === '/banned') {
+      // Si estamos en páginas públicas donde no necesitamos verificar sesión, no hacer nada
+      const publicPaths = ['/banned', '/login', '/'];
+      if (publicPaths.includes(location.pathname)) {
+        // Solo verificar si el usuario local está baneado para redirigir
+        if (user && user.is_active === 2) {
+          console.log('[AppInitializer] Usuario local baneado, redirigiendo a /banned');
+          navigate('/banned', { replace: true });
+        }
         setIsChecking(false);
         return;
       }
