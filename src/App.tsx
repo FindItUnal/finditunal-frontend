@@ -1,5 +1,6 @@
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
+import { NotificationToastProvider } from './context/NotificationToastContext';
 import { BrowserRouter } from 'react-router-dom';
 import AppInitializer from './components/AppInitializer';
 
@@ -7,9 +8,11 @@ function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
-        <BrowserRouter>
-          <AppInitializer />
-        </BrowserRouter>
+        <NotificationToastProvider>
+          <BrowserRouter>
+            <AppInitializer />
+          </BrowserRouter>
+        </NotificationToastProvider>
       </ToastProvider>
     </ThemeProvider>
   );

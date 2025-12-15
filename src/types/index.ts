@@ -200,3 +200,37 @@ export interface UpdateComplaintInput {
 export interface ComplaintActionResponse {
   message: string;
 }
+
+// ============ NOTIFICATION TYPES (Backend Integration) ============
+
+/**
+ * Tipos de notificaciones disponibles en el sistema
+ */
+export type NotificationType = 'system' | 'report' | 'complaint' | 'message';
+
+/**
+ * Registro de notificación del backend
+ * Compatible con NotificationRecord del backend
+ */
+export interface Notification {
+  notification_id: number;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message?: string | null;
+  related_id?: number | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+/**
+ * Respuesta paginada de notificaciones
+ * GET /user/{user_id}/notifications
+ */
+export interface NotificationPage {
+  items: Notification[];
+  total: number;
+  unread_count: number;
+  limit: number;
+  offset: number;
+}

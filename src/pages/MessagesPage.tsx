@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { PageTemplate } from '../components/templates';
 import { Card } from '../components/atoms';
-import { MessageCircle, Send, ArrowLeft } from 'lucide-react';
+import { MessageCircle, Send, ArrowLeft, Check, CheckCheck } from 'lucide-react';
 import { Chat, Message } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useConversations, useMarkAsRead } from '../hooks/useConversations';
@@ -24,6 +24,8 @@ export default function MessagesPage() {
 
   // Refs para scroll y estado previo
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
   const previousConversationRef = useRef<string | null>(null);
   const isLoadingRef = useRef(false);
 
@@ -35,6 +37,7 @@ export default function MessagesPage() {
     markAsRead: socketMarkAsRead,
     onNewMessage,
     onNewNotification,
+    onConversationRead,
   } = useSocketIO();
 
   // Obtener conversaciones
@@ -55,8 +58,23 @@ export default function MessagesPage() {
   // Mutation para marcar como leído (fallback REST)
   const markAsReadMutation = useMarkAsRead();
 
-  // Función para scroll al final
+  // Función para scroll al final — intenta desplazar el contenedor de mensajes
+  // en lugar de hacer scroll de toda la página.
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const container = messagesContainerRef.current;
+    if (container) {
+      // preferimos scrollTo con comportamiento suave
+      try {
+        container.scrollTo({ top: container.scrollHeight, behavior });
+        return;
+      } catch (e) {
+        // fallback a scrollTop si scrollTo no soporta behavior
+        container.scrollTop = container.scrollHeight;
+        return;
+      }
+    }
+
+    // fallback global
     messagesEndRef.current?.scrollIntoView({ behavior });
   }, []);
 
@@ -243,6 +261,29 @@ export default function MessagesPage() {
     return cleanup;
   }, [onNewNotification, refetchConversations]);
 
+  // Listener para cuando el otro usuario marca la conversación como leída
+  useEffect(() => {
+    const cleanup = onConversationRead((data) => {
+      const readConversationId = data.conversation_id.toString();
+      const currentConversationId = previousConversationRef.current;
+
+      // Si es la conversación actual, marcar todos MIS mensajes como leídos
+      if (currentConversationId && readConversationId === currentConversationId) {
+        console.log('✓✓ Mensajes marcados como leídos por el otro usuario');
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.senderId === String(userId) ? { ...msg, read: true } : msg
+          )
+        );
+      }
+
+      // Actualizar la lista de conversaciones
+      refetchConversations();
+    });
+
+    return cleanup;
+  }, [onConversationRead, userId, refetchConversations]);
+
   // Cleanup al desmontar
   useEffect(() => {
     return () => {
@@ -299,6 +340,11 @@ export default function MessagesPage() {
               : msg
           )
         );
+        
+        // Mantener foco en el input para seguir escribiendo
+        setTimeout(() => {
+          messageInputRef.current?.focus();
+        }, 0);
       } catch (err) {
         console.error('Error al enviar mensaje:', err);
         toast.error(err instanceof Error ? err.message : 'Error al enviar el mensaje');
@@ -434,7 +480,7 @@ export default function MessagesPage() {
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                   {loadingMessages ? (
                     <div className="flex justify-center items-center h-full">
                       <LoadingSpinner message="Cargando mensajes..." />
@@ -468,16 +514,28 @@ export default function MessagesPage() {
                               <p className="text-sm break-words whitespace-pre-wrap">
                                 {message.content}
                               </p>
-                              <p
-                                className={`text-xs mt-1 ${
+                              <div
+                                className={`flex items-center justify-end gap-1 mt-1 ${
                                   isOwnMessage ? 'text-teal-100' : 'text-gray-500 dark:text-gray-400'
                                 }`}
                               >
-                                {new Date(message.timestamp).toLocaleTimeString('es-ES', {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })}
-                              </p>
+                                <span className="text-xs">
+                                  {new Date(message.timestamp).toLocaleTimeString('es-ES', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                                {/* Mostrar indicador de leído solo en mensajes propios */}
+                                {isOwnMessage && (
+                                  <span title={message.read ? 'Leído' : 'Entregado'}>
+                                    {message.read ? (
+                                      <CheckCheck className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <Check className="w-3.5 h-3.5" />
+                                    )}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -494,6 +552,7 @@ export default function MessagesPage() {
                 >
                   <div className="relative">
                     <input
+                      ref={messageInputRef}
                       type="text"
                       value={messageText}
                       onChange={(e) => setMessageText(e.target.value)}

@@ -5,6 +5,16 @@ import { apiFetch } from './api';
  */
 export const authService = {
   /**
+   * Refresca el access token usando el refresh token almacenado en cookies
+   */
+  async refreshToken(apiBase: string): Promise<void> {
+    await apiFetch('/auth/refresh-token', {
+      method: 'POST',
+      baseUrl: apiBase,
+    });
+  },
+
+  /**
    * Cierra la sesión del usuario
    */
   async logout(apiBase: string): Promise<void> {

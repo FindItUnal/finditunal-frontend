@@ -22,6 +22,12 @@ export { useAdminDashboardStats } from './useAdminDashboardStats';
 export { useAdminActivityLog } from './useAdminActivityLog';
 export { useAdminUsers } from './useAdminUsers';
 export { useAdminComplaints } from './useAdminComplaints';
+export { 
+  useNotifications, 
+  useUnreadNotificationsCount, 
+  useMarkNotificationAsRead, 
+  useMarkAllNotificationsAsRead 
+} from './useNotifications';
 
 export type { UseSearchFilterReturn } from './useSearchFilter';
 export type { UseModalReturn } from './useModal';

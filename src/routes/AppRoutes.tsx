@@ -4,6 +4,7 @@ import {
   DashboardPage,
   ProfilePage,
   MessagesPage,
+  NotificationsPage,
   LandingPage,
   ObjectDetailPage,
   AdminDashboardPage,
@@ -62,6 +63,14 @@ export default function AppRoutes() {
           element={
             <PrivateRoute>
               <MessagesPage />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <PrivateRoute>
+              <NotificationsPage />
             </PrivateRoute>
           }
         />

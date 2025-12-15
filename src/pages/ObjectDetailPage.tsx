@@ -156,15 +156,15 @@ export default function ObjectDetailPage() {
         {/* Image Section */}
         <div className="space-y-4">
           <div className="overflow-hidden rounded-xl">
-            <div className="relative aspect-[4/3] bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-xl">
+            <div className="relative bg-gray-100 dark:bg-gray-800 overflow-hidden rounded-xl flex items-center justify-center">
               {object.imageUrl ? (
                 <img
                   src={object.imageUrl}
                   alt={object.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-auto max-h-[640px] object-contain"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center">
+                <div className="w-full flex items-center justify-center py-20">
                   <p className="text-gray-400 dark:text-gray-500">Sin imagen</p>
                 </div>
               )}
@@ -348,6 +348,8 @@ export default function ObjectDetailPage() {
         confirmLabel="Crear conversación"
         cancelLabel="Cancelar"
         onConfirm={handleCreateConversation}
+        useButton
+        confirmButtonProps={{ variant: 'primary' }}
       />
 
       <ReportDialog
@@ -370,13 +372,20 @@ export default function ObjectDetailPage() {
             
             toast.success('Denuncia enviada correctamente');
             setReportOpen(false);
-          } catch (err) {
+          } catch (err: any) {
             console.error('Error al enviar denuncia:', err);
-            toast.error(
-              err instanceof Error 
-                ? err.message 
-                : 'Error al enviar la denuncia. Por favor, intenta nuevamente.'
-            );
+            
+            // Detectar error de denuncia duplicada (409 Conflict)
+            const errorMessage = err?.message || '';
+            if (err?.status === 409 || errorMessage.includes('Ya has denunciado')) {
+              toast.error('Ya has denunciado esta publicación anteriormente');
+            } else {
+              toast.error(
+                err instanceof Error 
+                  ? err.message 
+                  : 'Error al enviar la denuncia. Por favor, intenta nuevamente.'
+              );
+            }
           }
         }}
       />

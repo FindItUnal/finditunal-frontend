@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import { AppRoutes } from '../routes';
 import useUserStore from '../store/useUserStore';
 import useGlobalStore from '../store/useGlobalStore';
-import { profileService } from '../services';
+import { profileService, notificationService } from '../services';
 import { LoadingSpinner } from './atoms';
 import { useSocketIO } from '../hooks/useSocketIO';
+import { useQueryClient } from '@tanstack/react-query';
+import { socketService, FullNotificationData } from '../services/socketService';
+import { useNotificationToast } from '../context/NotificationToastContext';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { getUserId } from '../utils/userUtils';
 
 export default function AppInitializer() {
   const user = useUserStore((s) => s.user);
@@ -18,6 +22,7 @@ export default function AppInitializer() {
   // Inicializar Socket.IO cuando hay usuario autenticado
   useSocketIO();
 
+  // Escuchar notificaciones en tiempo real
   useEffect(() => {
     const checkSession = async () => {
       // Si estamos en páginas públicas donde no necesitamos verificar sesión, no hacer nada
@@ -75,8 +80,12 @@ export default function AppInitializer() {
           navigate('/banned', { replace: true });
         }
       } catch (error) {
-        // No hay sesión activa - usuario debe hacer login
+        // No hay sesión activa o token expirado - limpiar estado local
         console.debug('No active session found');
+        if (user) {
+          // Si había un usuario en localStorage pero la sesión expiró, limpiarlo
+          setUser(null);
+        }
       } finally {
         setIsChecking(false);
       }
