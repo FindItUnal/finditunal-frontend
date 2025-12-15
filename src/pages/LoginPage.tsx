@@ -1,4 +1,5 @@
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AuthTemplate } from '../components/templates';
 import ThemeToggle from '../components/atoms/ThemeToggle';
 import { Button } from '../components/atoms';
@@ -7,6 +8,15 @@ import useGlobalStore from '../store/useGlobalStore';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Verificar si el usuario fue redirigido por estar baneado
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error === 'user_banned') {
+      navigate('/banned', { replace: true });
+    }
+  }, [searchParams, navigate]);
 
   const googleAuthUrl = useGlobalStore((s) => s.googleAuthUrl);
   const startGoogleAuth = () => {
