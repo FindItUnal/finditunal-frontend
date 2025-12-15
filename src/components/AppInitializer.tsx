@@ -18,9 +18,80 @@ export default function AppInitializer() {
   const [isChecking, setIsChecking] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const { showNotification } = useNotificationToast();
+  const userId = user ? getUserId(user) : null;
   
   // Inicializar Socket.IO cuando hay usuario autenticado
   useSocketIO();
+
+  // Escuchar notificaciones en tiempo real
+  useEffect(() => {
+    if (!user) return;
+
+    const cleanup = socketService.onFullNotification((notification: FullNotificationData) => {
+      console.log('📬 Nueva notificación recibida:', notification);
+
+      // Si es una notificación de mensaje de chat
+      if (notification.type === 'message' && notification.related_id) {
+        const conversationId = notification.related_id;
+
+        // NO mostrar toast si ya estás en esa conversación
+        const currentPath = location.pathname;
+        const isInActiveConversation = currentPath === `/messages/${conversationId}`;
+
+        if (isInActiveConversation) {
+          console.log('🔕 Suprimiendo notificación toast - ya estás en la conversación activa');
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
+          return;
+        }
+
+        // Mostrar toast clickeable con navegación
+        if (notification.message) {
+          showNotification(
+            notification.message,
+            notification.type,
+            conversationId,
+            async () => {
+              // Al hacer click: navegar y marcar como leída
+              navigate(`/messages/${conversationId}`);
+
+              // Marcar la notificación específica como leída (REST API)
+              if (userId) {
+                try {
+                  await notificationService.markAsRead(apiUrl, String(userId), notification.notification_id);
+                } catch (err) {
+                  console.error('Error al marcar notificación como leída:', err);
+                }
+              }
+
+              // Marcar la conversación como leída vía Socket.IO
+              socketService.markAsRead(conversationId);
+
+              // Invalidar queries para actualizar contadores
+              queryClient.invalidateQueries({ queryKey: ['notifications'] });
+              queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+              queryClient.invalidateQueries({ queryKey: ['notificationsUnreadCount'] });
+            }
+          );
+        }
+      } else {
+        // Para otros tipos de notificaciones, mostrar normalmente
+        if (notification.message) {
+          showNotification(notification.message, notification.type);
+        }
+      }
+
+      // Invalidar cache de React Query para actualizar contadores
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unread-notifications-count'] });
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+    });
+
+    return cleanup;
+  }, [user, userId, queryClient, showNotification, location.pathname, navigate, apiUrl]);
 
   // Escuchar notificaciones en tiempo real
   useEffect(() => {
